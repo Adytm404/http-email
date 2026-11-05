@@ -40,6 +40,11 @@ class SendEmailJob implements ShouldQueue
             return;
         }
 
+        // Rescheduled to a later time: the job queued for the new time will send it.
+        if ($email->status === 'scheduled' && $email->scheduled_at?->isAfter(now()->addSeconds(5))) {
+            return;
+        }
+
         $rule = $router->ruleFor($email);
         $candidates = $router->candidates($email, $rule);
 
