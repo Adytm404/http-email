@@ -5,7 +5,9 @@ namespace Tests;
 use App\Mail\DriverFactory;
 use App\Models\ApiKey;
 use App\Models\Provider;
+use App\Models\Role;
 use App\Models\RoutingRule;
+use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Tests\Support\FakeDriverFactory;
 
@@ -42,6 +44,17 @@ abstract class TestCase extends BaseTestCase
         }
 
         return $rule->load('providers');
+    }
+
+    /** A signed-in-able user with the built-in owner role (all permissions). */
+    protected function owner(array $attrs = []): User
+    {
+        return User::factory()->create(array_merge(['role_id' => Role::owner()->id], $attrs));
+    }
+
+    protected function userWithRole(string $roleName): User
+    {
+        return User::factory()->create(['role_id' => Role::where('name', $roleName)->firstOrFail()->id]);
     }
 
     /** @return array{0: ApiKey, 1: string} */

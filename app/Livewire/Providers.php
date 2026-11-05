@@ -17,6 +17,12 @@ use Throwable;
 #[Title('Providers')]
 class Providers extends Component
 {
+    /** Runs on every request, including Livewire actions. */
+    public function boot(): void
+    {
+        $this->authorize('manage_providers');
+    }
+
     public bool $showForm = false;
 
     public ?int $editingId = null;

@@ -1,18 +1,26 @@
 <div @if (in_array($email->status, ['queued', 'sending', 'scheduled'])) wire:poll.5s @endif>
     <a href="{{ route('emails') }}" wire:navigate class="mb-5 inline-flex items-center gap-1 text-[13px] text-muted hover:text-ink">
-        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg>
+        <x-ui.icon name="chevron-left" class="size-3.5" />
         Send log
     </a>
 
     <x-ui.page-header :title="$email->subject">
         <x-slot:actions>
             <x-ui.status :status="$email->status" class="text-[13px]" />
-            @if ($email->status === 'scheduled')
-                <x-ui.button variant="danger" size="sm" wire:click="cancel" wire:confirm="Cancel this scheduled email?">Cancel send</x-ui.button>
-            @endif
-            @if (in_array($email->status, ['failed', 'canceled']))
-                <x-ui.button size="sm" wire:click="retry">Retry now</x-ui.button>
-            @endif
+            @can('view_email_content')
+                <x-ui.button variant="secondary" size="sm" :href="route('emails.eml', $email)" x-on:click.prevent="window.location = $el.href"><x-ui.icon name="download" class="size-4" /> Download .eml</x-ui.button>
+            @endcan
+            @can('send_emails')
+                <x-ui.button variant="secondary" size="sm" :href="route('compose', ['from_email' => $email->id])"><x-ui.icon name="copy" class="size-4" /> Duplicate</x-ui.button>
+            @endcan
+            @can('manage_emails')
+                @if ($email->status === 'scheduled')
+                    <x-ui.button variant="danger" size="sm" wire:click="cancel" wire:confirm="Cancel this scheduled email?">Cancel send</x-ui.button>
+                @endif
+                @if (in_array($email->status, ['failed', 'canceled']))
+                    <x-ui.button size="sm" wire:click="retry"><x-ui.icon name="refresh" class="size-4" /> Retry now</x-ui.button>
+                @endif
+            @endcan
         </x-slot:actions>
     </x-ui.page-header>
 
@@ -39,24 +47,16 @@
                 </dl>
             </x-ui.card>
 
-            <x-ui.card :padding="false" x-data="{ tab: '{{ $email->html ? 'html' : 'text' }}' }">
-                <div class="flex gap-1 border-b border-line px-3 pt-2" role="tablist">
-                    @foreach (['html' => 'Preview', 'text' => 'Plain text', 'source' => 'HTML source'] as $key => $label)
-                        <button type="button" role="tab" x-on:click="tab = '{{ $key }}'" :aria-selected="tab === '{{ $key }}'"
-                                class="-mb-px border-b-2 px-3 py-2 text-[13px] transition-colors"
-                                :class="tab === '{{ $key }}' ? 'border-accent font-medium text-ink' : 'border-transparent text-muted hover:text-ink'">{{ $label }}</button>
-                    @endforeach
-                </div>
-                <div x-show="tab === 'html'" class="bg-white">
-                    @if ($email->html)
-                        {{-- sandbox without allow-scripts: the email's HTML cannot run code or reach this page. --}}
-                        <iframe srcdoc="{{ $email->html }}" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" class="h-[520px] w-full rounded-b-2xl" title="Email preview"></iframe>
-                    @else
-                        <p class="p-6 text-sm text-slate-500">No HTML body.</p>
-                    @endif
-                </div>
-                <pre x-show="tab === 'text'" x-cloak class="max-h-[520px] overflow-auto whitespace-pre-wrap p-5 font-mono text-[12.5px]">{{ $email->text ?? 'No plain-text body.' }}</pre>
-                <pre x-show="tab === 'source'" x-cloak class="max-h-[520px] overflow-auto whitespace-pre-wrap p-5 font-mono text-[12.5px]">{{ $email->html ?? 'No HTML body.' }}</pre>
+            <x-ui.card :padding="false" class="overflow-hidden">
+                @can('view_email_content')
+                    <x-email-body :email="$email" height="h-[600px]" />
+                @else
+                    <div class="flex flex-col items-center px-6 py-16 text-center">
+                        <x-ui.icon name="shield" class="size-6 text-subtle" />
+                        <p class="mt-2 text-sm font-medium">Content hidden</p>
+                        <p class="mt-1 text-[13px] text-muted">Your role can see delivery details but not email content.</p>
+                    </div>
+                @endcan
             </x-ui.card>
         </div>
 
@@ -107,7 +107,13 @@
                         <div>
                             <dt class="text-[12px] text-muted">Attachments</dt>
                             @foreach ($email->attachments as $att)
-                                <dd class="truncate">{{ $att->filename }} <span class="text-muted">· {{ $att->size < 1024 ? $att->size.' B' : ($att->size < 1048576 ? round($att->size / 1024, 1).' KB' : round($att->size / 1048576, 1).' MB') }}</span></dd>
+                                <dd class="truncate">
+                                    @can('view_email_content')
+                                        <a href="{{ route('emails.attachment', [$email, $att]) }}" class="text-accent hover:underline">{{ $att->filename }}</a>
+                                    @else
+                                        {{ $att->filename }}
+                                    @endcan
+                                    <span class="text-muted">· {{ $att->size < 1024 ? $att->size.' B' : ($att->size < 1048576 ? round($att->size / 1024, 1).' KB' : round($att->size / 1048576, 1).' MB') }}</span></dd>
                             @endforeach
                         </div>
                     @endif

@@ -10,6 +10,12 @@ use Livewire\Component;
 #[Title('API keys')]
 class ApiKeys extends Component
 {
+    /** Runs on every request, including Livewire actions. */
+    public function boot(): void
+    {
+        $this->authorize('manage_api_keys');
+    }
+
     public bool $showForm = false;
 
     public string $name = '';

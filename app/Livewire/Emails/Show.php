@@ -10,8 +10,14 @@ class Show extends Component
 {
     public Email $email;
 
+    public function mount(): void
+    {
+        $this->authorize('view_emails');
+    }
+
     public function retry(EmailIntake $intake): void
     {
+        $this->authorize('manage_emails');
         if (! in_array($this->email->status, ['failed', 'canceled'], true)) {
             return;
         }
@@ -23,6 +29,7 @@ class Show extends Component
 
     public function cancel(): void
     {
+        $this->authorize('manage_emails');
         if ($this->email->status === 'scheduled') {
             $this->email->forceFill(['status' => 'canceled'])->save();
             $this->dispatch('toast', message: 'Scheduled email canceled');

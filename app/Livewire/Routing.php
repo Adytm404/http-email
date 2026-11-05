@@ -15,6 +15,12 @@ use Livewire\Component;
 #[Title('Routing')]
 class Routing extends Component
 {
+    /** Runs on every request, including Livewire actions. */
+    public function boot(): void
+    {
+        $this->authorize('manage_routing');
+    }
+
     public bool $showForm = false;
 
     public ?int $editingId = null;

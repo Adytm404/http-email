@@ -30,7 +30,7 @@ class DashboardTest extends TestCase
             ->assertSet('setup', true)
             ->set('name', 'Admin')->set('email', 'admin@example.com')->set('password', 'secret-password')
             ->call('login')
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('home'));
 
         $this->assertSame(1, User::count());
         Livewire::test(Login::class)->assertSet('setup', false);
@@ -60,18 +60,18 @@ class DashboardTest extends TestCase
 
     public function test_every_page_renders(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs($this->owner());
         $this->provider('A');
         $email = Email::create(['from' => 'a@b.test', 'to' => ['c@d.test'], 'subject' => 'Hello', 'html' => '<p>x</p>', 'status' => 'sent']);
 
-        foreach (['/dashboard', '/dashboard/emails', '/dashboard/providers', '/dashboard/routing', '/dashboard/keys', '/dashboard/docs', '/dashboard/settings', "/dashboard/emails/{$email->id}"] as $url) {
+        foreach (['/dashboard', '/dashboard/emails', '/dashboard/providers', '/dashboard/routing', '/dashboard/keys', '/dashboard/docs', '/dashboard/settings', '/dashboard/users', '/dashboard/roles', '/dashboard/send', '/dashboard/?range=30', "/dashboard/emails/{$email->id}", "/dashboard/emails?view={$email->id}"] as $url) {
             $this->get($url)->assertOk();
         }
     }
 
     public function test_provider_form_keeps_secret_when_left_blank(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs($this->owner());
 
         Livewire::test(Providers::class)
             ->call('create')
@@ -96,7 +96,7 @@ class DashboardTest extends TestCase
 
     public function test_route_form_and_simulator(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs($this->owner());
         $a = $this->provider('A');
         $b = $this->provider('B');
 
@@ -119,7 +119,7 @@ class DashboardTest extends TestCase
 
     public function test_api_key_token_is_shown_once_and_stored_hashed(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs($this->owner());
 
         $component = Livewire::test(ApiKeys::class)->call('create')->set('name', 'App')->call('save');
         $token = $component->get('newToken');

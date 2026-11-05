@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Email;
+use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use App\Routing\QuotaManager;
@@ -34,7 +35,12 @@ Artisan::command('app:create-admin {email?} {--name=Admin}', function () {
     $email = $this->argument('email') ?? text('Email', required: true);
     $pass = password('Password (min 10 characters)', required: true, validate: fn ($v) => strlen($v) < 10 ? 'At least 10 characters.' : null);
 
-    User::updateOrCreate(['email' => $email], ['name' => $this->option('name'), 'password' => $pass]);
+    User::updateOrCreate(['email' => $email], [
+        'name' => $this->option('name'),
+        'password' => $pass,
+        'role_id' => Role::owner()?->id,
+        'is_active' => true,
+    ]);
     $this->info("Admin {$email} saved.");
 })->purpose('Create or reset a dashboard admin account');
 

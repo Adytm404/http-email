@@ -17,7 +17,13 @@ your app ── POST /emails ──▶ mailroute ──▶ route rules ──▶
 - **Circuit breaker**: after N failures in a row a provider is skipped for a cooldown period.
 - **Smart retries**: connection or auth problems fail over to the next provider; rejected recipients (550-553) stop immediately; if every provider fails, the email is retried after 1 min, 5 min and 30 min.
 - Scheduling (`scheduled_at`, ISO date or "in 1 hour"), `Idempotency-Key`, attachments (base64 or URL, 40MB), tags, custom headers.
-- **Dashboard**: traffic overview, providers with health and quota usage, test connection / send test, route editor with a simulator, API keys, searchable send log with per-attempt timeline and sandboxed HTML preview. Light and dark mode.
+- **Dashboard** with a sidebar layout, light and dark mode:
+  - Overview with animated charts: daily volume (7/14/30 days), status donut, provider share, top recipient domains, success rate and average delivery time.
+  - Send log with status tabs, search and filters; a side drawer to read any email (sandboxed HTML preview, plain text, source, attachments, attempts); `.eml` download, duplicate, retry, bulk retry of failed mail and CSV export.
+  - Compose and schedule emails from the browser through the same routing as the API.
+  - Providers with health and quota usage, test connection and send test; route editor with a simulator; API keys.
+- **Users and dynamic roles**: add, edit, deactivate and remove users; create roles and tick exactly which of 12 permissions they get (for example, a role that sees the send log but not email content). The built-in Owner role always has everything and the last active owner cannot be removed.
+- **Login protection**: 5 wrong passwords for an account from one IP (or 20 from one IP overall) lock sign-in for 30 minutes (`MAILROUTE_LOGIN_MAX_ATTEMPTS`, `MAILROUTE_LOGIN_LOCKOUT_MINUTES`).
 
 ## Stack
 

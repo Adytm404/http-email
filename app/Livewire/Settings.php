@@ -9,6 +9,12 @@ use Livewire\Component;
 #[Title('Settings')]
 class Settings extends Component
 {
+    /** Runs on every request, including Livewire actions. */
+    public function boot(): void
+    {
+        $this->authorize('manage_settings');
+    }
+
     public ?string $default_from = '';
 
     public int $retention_days = 30;

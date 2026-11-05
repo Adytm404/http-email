@@ -1,4 +1,5 @@
 <div x-data="{ items: [] }"
+     @if (session('toast')) x-init="$nextTick(() => $dispatch('toast', { message: @js(session('toast')) }))" @endif
      x-on:toast.window="const id = Date.now() + Math.random(); items.push({ id, ...$event.detail }); setTimeout(() => items = items.filter(i => i.id !== id), 4000)"
      class="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end"
      aria-live="polite">

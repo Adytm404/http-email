@@ -2,6 +2,7 @@
 
 use App\Http\ApiError;
 use App\Http\Middleware\AuthenticateApiKey;
+use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -23,7 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['api.key' => AuthenticateApiKey::class]);
         $middleware->redirectGuestsTo('/login');
-        $middleware->redirectUsersTo('/dashboard');
+        $middleware->redirectUsersTo('/dashboard/start');
+        $middleware->web(append: [EnsureUserIsActive::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Resend-compatible error bodies for the public API.
