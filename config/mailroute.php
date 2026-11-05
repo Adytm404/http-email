@@ -6,4 +6,7 @@ return [
 
     // Start the queue worker from the scheduler (cron) instead of a supervisor.
     'queue_via_scheduler' => (bool) env('MAILROUTE_QUEUE_VIA_SCHEDULER', false),
+
+    // Required (as ?setup=...) to create the first admin from the login page in production.
+    'setup_token' => env('MAILROUTE_SETUP_TOKEN'),
 ];

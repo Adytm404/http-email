@@ -36,6 +36,28 @@ class DashboardTest extends TestCase
         Livewire::test(Login::class)->assertSet('setup', false);
     }
 
+    public function test_first_run_setup_requires_token_in_production(): void
+    {
+        $this->app['env'] = 'production';
+
+        Livewire::test(Login::class)
+            ->assertSet('setup', false)
+            ->assertSet('setupLocked', true);
+
+        config(['mailroute.setup_token' => 'secret-token']);
+
+        Livewire::withQueryParams(['setup' => 'wrong'])->test(Login::class)->assertSet('setup', false);
+        Livewire::withQueryParams(['setup' => 'secret-token'])->test(Login::class)->assertSet('setup', true);
+    }
+
+    public function test_setup_flag_cannot_be_forced_from_the_browser(): void
+    {
+        $this->app['env'] = 'production';
+
+        $this->expectException(\Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException::class);
+        Livewire::test(Login::class)->set('setup', true);
+    }
+
     public function test_every_page_renders(): void
     {
         $this->actingAs(User::factory()->create());

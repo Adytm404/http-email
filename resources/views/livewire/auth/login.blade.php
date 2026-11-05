@@ -49,6 +49,13 @@
                 {{ $setup ? 'No users exist yet. This account manages providers, routes and API keys.' : 'Manage providers, routes and API keys.' }}
             </p>
 
+            @if ($setupLocked)
+                <div class="mt-6 rounded-xl border border-line bg-surface-2 p-4 text-[13px] leading-relaxed text-muted">
+                    No admin account exists yet. Open the setup link that contains your <code class="font-mono text-ink">MAILROUTE_SETUP_TOKEN</code>,
+                    or run <code class="font-mono text-ink">php artisan app:create-admin</code> on the server.
+                </div>
+            @endif
+
             <form wire:submit="login" class="mt-8 space-y-4">
                 @if ($setup)
                     <div>

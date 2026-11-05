@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -22,11 +23,29 @@ class Login extends Component
 
     public bool $remember = true;
 
+    /** First-run admin creation is allowed for this visitor. Locked so the browser cannot flip it. */
+    #[Locked]
     public bool $setup = false;
+
+    /** No user exists yet, but this visitor lacks the setup token. */
+    #[Locked]
+    public bool $setupLocked = false;
 
     public function mount(): void
     {
-        $this->setup = User::count() === 0;
+        if (User::count() > 0) {
+            return;
+        }
+
+        // In production the first admin can only be created with ?setup=<MAILROUTE_SETUP_TOKEN>
+        // (or with `php artisan app:create-admin`), so a fresh deploy is not open to strangers.
+        $token = (string) config('mailroute.setup_token');
+        $allowed = $token !== ''
+            ? hash_equals($token, (string) request()->query('setup'))
+            : ! app()->isProduction();
+
+        $this->setup = $allowed;
+        $this->setupLocked = ! $allowed;
     }
 
     public function login()
@@ -55,8 +74,8 @@ class Login extends Component
 
     private function createAdmin()
     {
-        // Only possible while no user exists yet.
-        abort_if(User::count() > 0, 403);
+        // Only possible while no user exists yet, and only for a visitor mount() allowed.
+        abort_if(! $this->setup || User::count() > 0, 403);
 
         $this->validate([
             'name' => 'required|string|max:100',
