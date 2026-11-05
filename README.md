@@ -1,58 +1,100 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# mailroute
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A self-hosted email router. Your apps call **one HTTP endpoint** (Resend-compatible), and mailroute delivers through **your own** SMTP servers, Resend, SendGrid or Mailgun accounts, picking the provider per email with routing rules, failover, weighted load balancing and per-provider rate limits.
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+your app ── POST /emails ──▶ mailroute ──▶ route rules ──▶ SMTP A / SMTP B / Resend / SendGrid / Mailgun
+                                         (failover, weights, quotas, circuit breaker)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Features
 
-## Contributing
+- **Resend-compatible API**: `POST /emails`, `POST /emails/batch`, `GET /emails`, `GET /emails/{id}`, `PATCH /emails/{id}`, `POST /emails/{id}/cancel`. Same payloads and error format, so the Resend SDKs work by changing the base URL. Also served under `/v1`.
+- **Upstreams**: any SMTP server (STARTTLS, SSL or plain), Resend, SendGrid, Mailgun (US/EU).
+- **Routing rules** matched top to bottom on sender domain, recipient domain (wildcards supported), tag, or API key, with a default route as fallback. Force a route per request with the `X-Route` header.
+- **Strategies**: priority + failover, or weighted round-robin with the remaining providers as fallbacks.
+- **Rate limits** per provider per minute / hour / day. When a limit is reached, mail moves to the next provider.
+- **Circuit breaker**: after N failures in a row a provider is skipped for a cooldown period.
+- **Smart retries**: connection or auth problems fail over to the next provider; rejected recipients (550-553) stop immediately; if every provider fails, the email is retried after 1 min, 5 min and 30 min.
+- Scheduling (`scheduled_at`, ISO date or "in 1 hour"), `Idempotency-Key`, attachments (base64 or URL, 40MB), tags, custom headers.
+- **Dashboard**: traffic overview, providers with health and quota usage, test connection / send test, route editor with a simulator, API keys, searchable send log with per-attempt timeline and sandboxed HTML preview. Light and dark mode.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Stack
 
-## Code of Conduct
+Laravel 13, Livewire 4, Tailwind CSS 4, PostgreSQL. No Redis: the queue, cache and rate limiter use the database (`SELECT … FOR UPDATE SKIP LOCKED` keeps workers from picking the same job).
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Setup
 
-## Security Vulnerabilities
+Requirements: PHP 8.3+ with `pdo_pgsql`, Composer, Node 20+, PostgreSQL 13+.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+git clone https://github.com/Adytm404/http-email.git mailroute && cd mailroute
+composer install
+npm install && npm run build
+cp .env.example .env
+php artisan key:generate
+# edit .env: APP_URL and DB_* for your PostgreSQL database
+php artisan migrate
+```
 
-## License
+Run it locally:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan serve
+```
+
+```bash
+php artisan queue:work --queue=emails,default
+```
+
+Open `http://localhost:8000`. On first visit you create the admin account (or run `php artisan app:create-admin you@example.com`). Then add a provider, optionally a default route, and an API key.
+
+## Sending
+
+```bash
+curl -X POST http://localhost:8000/emails \
+  -H "Authorization: Bearer re_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"Acme <hello@acme.com>","to":"user@example.com","subject":"Hello","html":"<p>It works</p>"}'
+```
+
+With the Resend Node SDK, set `RESEND_BASE_URL=https://your-mailroute-host` and keep your code as it is.
+
+Extra response fields beyond Resend's schema on `GET /emails/{id}`: `status`, `provider`, `provider_message_id`, `attempts`, `sent_at`, `failed_reason`.
+
+## How a send is routed
+
+1. If `X-Route` names an active route, it is used.
+2. Otherwise the first active route (in the order shown on the Routing page) whose conditions all match wins; if none match, the default route is used; with no routes at all, every active provider is used by priority.
+3. Providers that are paused or cooling down are dropped. Failover orders the rest by priority; weighted draws the first provider by weight and keeps the others as fallbacks.
+4. Each candidate must reserve a slot in its minute/hour/day limits (an atomic Postgres upsert), otherwise it is skipped.
+
+## Production
+
+Run the queue worker and the scheduler under a process manager. Example systemd units:
+
+```ini
+# /etc/systemd/system/mailroute-worker@.service  (enable mailroute-worker@1 … @4)
+[Service]
+User=www-data
+WorkingDirectory=/var/www/mailroute
+ExecStart=/usr/bin/php artisan queue:work --queue=emails,default --sleep=1 --max-time=3600
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```cron
+* * * * * cd /var/www/mailroute && php artisan schedule:run >> /dev/null 2>&1
+```
+
+The scheduler runs `emails:prune` daily (retention is set on the Settings page). Serve `public/` with Nginx + PHP-FPM as for any Laravel app, and run `php artisan config:cache route:cache view:cache` on deploy.
+
+## Tests
+
+Tests run against PostgreSQL in a separate `testing` schema of the database in `.env` (create it once with `CREATE SCHEMA testing;`):
+
+```bash
+php artisan test
+```
