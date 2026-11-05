@@ -48,6 +48,11 @@ class ApiKey extends Model
         return self::where('token_hash', hash('sha256', $token))->whereNull('revoked_at')->first();
     }
 
+    public function emails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Email::class);
+    }
+
     public function canRead(): bool
     {
         return $this->permission === 'full_access';
