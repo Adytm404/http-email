@@ -44,6 +44,11 @@ Artisan::command('app:create-admin {email?} {--name=Admin}', function () {
     $this->info("Admin {$email} saved.");
 })->purpose('Create or reset a dashboard admin account');
 
+Artisan::command('app:captcha-off', function () {
+    Setting::put('captcha_mode', 'off');
+    $this->info('Sign-in captcha turned off. Keys are kept; turn it back on under Settings.');
+})->purpose('Turn off the sign-in reCAPTCHA (e.g. after configuring wrong keys)');
+
 Schedule::command('emails:prune')->dailyAt('03:00');
 
 // Shared hosting without a process manager: let cron start a worker every

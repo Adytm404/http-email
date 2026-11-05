@@ -11,6 +11,9 @@ return [
     'login_max_attempts' => (int) env('MAILROUTE_LOGIN_MAX_ATTEMPTS', 5),
     'login_lockout_minutes' => (int) env('MAILROUTE_LOGIN_LOCKOUT_MINUTES', 30),
 
+    // Emergency switch: ignore the reCAPTCHA setting (e.g. wrong keys locked everyone out).
+    'captcha_disabled' => (bool) env('MAILROUTE_CAPTCHA_DISABLED', false),
+
     // Required (as ?setup=...) to create the first admin from the login page in production.
     'setup_token' => env('MAILROUTE_SETUP_TOKEN'),
 ];

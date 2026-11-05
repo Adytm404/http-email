@@ -56,7 +56,18 @@
                 </div>
             @endif
 
-            <form wire:submit="login" class="mt-8 space-y-4">
+            @if ($captchaMode === 'v3')
+                {{-- v3: get a fresh token right before each sign-in, then submit. --}}
+                <form class="mt-8 space-y-4"
+                      x-data
+                      x-on:submit.prevent="
+                        if (! window.grecaptcha || ! window.grecaptcha.execute) { $wire.login(); return }
+                        grecaptcha.ready(() => grecaptcha.execute(@js($captchaSiteKey), { action: 'login' })
+                            .then(token => { $wire.captchaToken = token; $wire.login() })
+                            .catch(() => $wire.login()))">
+            @else
+                <form wire:submit="login" class="mt-8 space-y-4">
+            @endif
                 @if ($setup)
                     <div>
                         <label for="name" class="label">Name</label>
@@ -84,11 +95,48 @@
                     </label>
                 @endunless
 
+                @if ($captchaMode === 'v2')
+                    <div wire:ignore
+                         x-data="{
+                            widget: null,
+                            init() {
+                                const render = () => {
+                                    this.widget = grecaptcha.render(this.$refs.box, {
+                                        sitekey: @js($captchaSiteKey),
+                                        theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                                        callback: (token) => { this.$wire.captchaToken = token },
+                                        'expired-callback': () => { this.$wire.captchaToken = '' },
+                                    })
+                                }
+                                if (window.grecaptcha && window.grecaptcha.render) { render() } else { window.mrCaptchaRender = render }
+                            },
+                         }"
+                         x-on:captcha-reset.window="if (widget !== null) grecaptcha.reset(widget)">
+                        <div x-ref="box" class="min-h-[78px]"></div>
+                    </div>
+                @endif
+                @error('captcha') <p class="text-[13px] text-bad">{{ $message }}</p> @enderror
+
                 <x-ui.button type="submit" size="lg" class="w-full" wire:loading.attr="disabled">
                     <span wire:loading.remove wire:target="login">{{ $setup ? 'Create account' : 'Sign in' }}</span>
                     <span wire:loading wire:target="login">Please wait…</span>
                 </x-ui.button>
+
+                @if ($captchaMode === 'v3')
+                    <p class="text-center text-[11.5px] leading-relaxed text-subtle">
+                        Protected by reCAPTCHA. Google's
+                        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="underline">Privacy Policy</a> and
+                        <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" class="underline">Terms of Service</a> apply.
+                    </p>
+                @endif
             </form>
+
+            @if ($captchaMode === 'v2')
+                <script>window.mrCaptchaOnload = () => window.mrCaptchaRender && window.mrCaptchaRender()</script>
+                <script src="https://www.google.com/recaptcha/api.js?onload=mrCaptchaOnload&render=explicit" async defer></script>
+            @elseif ($captchaMode === 'v3')
+                <script src="https://www.google.com/recaptcha/api.js?render={{ urlencode($captchaSiteKey) }}" async defer></script>
+            @endif
         </div>
     </div>
 </div>

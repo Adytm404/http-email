@@ -14,6 +14,14 @@ class Setting extends Model
         'breaker_cooldown_seconds' => 300,
     ];
 
+    /** Settings with their own handling (captcha_secret is stored encrypted and never sent to the browser). */
+    public const CAPTCHA_DEFAULTS = [
+        'captcha_mode' => 'off',
+        'captcha_site_key' => null,
+        'captcha_secret' => null,
+        'captcha_min_score' => 0.5,
+    ];
+
     public $incrementing = false;
 
     public $timestamps = false;
@@ -33,7 +41,7 @@ class Setting extends Model
     {
         $all = Cache::remember('settings.all', 60, fn () => self::pluck('value', 'key')->all());
 
-        return $all[$key] ?? self::DEFAULTS[$key] ?? null;
+        return $all[$key] ?? self::DEFAULTS[$key] ?? self::CAPTCHA_DEFAULTS[$key] ?? null;
     }
 
     public static function put(string $key, mixed $value): void

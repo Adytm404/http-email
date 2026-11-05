@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Auth;
 
+use App\Auth\Captcha;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,9 @@ class Login extends Component
     public string $password = '';
 
     public bool $remember = true;
+
+    /** Response token from the reCAPTCHA widget (v2) or grecaptcha.execute (v3). */
+    public string $captchaToken = '';
 
     /** First-run admin creation is allowed for this visitor. Locked so the browser cannot flip it. */
     #[Locked]
@@ -71,7 +75,16 @@ class Login extends Component
             }
         }
 
+        // reCAPTCHA tokens are single use, so the widget is reset after every attempt.
+        $token = $this->captchaToken;
+        $this->captchaToken = '';
+        if ($error = app(Captcha::class)->check($token, request()->ip())) {
+            $this->dispatch('captcha-reset');
+            throw ValidationException::withMessages(['captcha' => $error]);
+        }
+
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password, 'is_active' => true], $this->remember)) {
+            $this->dispatch('captcha-reset');
             RateLimiter::hit($accountKey, $lockout);
             RateLimiter::hit($ipKey, $lockout);
 
@@ -111,8 +124,13 @@ class Login extends Component
         return $this->redirect(route('home'), navigate: true);
     }
 
-    public function render()
+    public function render(Captcha $captcha)
     {
-        return view('livewire.auth.login');
+        $active = ! $this->setup && $captcha->enabled();
+
+        return view('livewire.auth.login', [
+            'captchaMode' => $active ? $captcha->mode() : 'off',
+            'captchaSiteKey' => $active ? $captcha->siteKey() : null,
+        ]);
     }
 }

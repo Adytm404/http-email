@@ -23,7 +23,7 @@ your app ── POST /emails ──▶ mailroute ──▶ route rules ──▶
   - Compose and schedule emails from the browser through the same routing as the API.
   - Providers with health and quota usage, test connection and send test; route editor with a simulator; API keys.
 - **Users and dynamic roles**: add, edit, deactivate and remove users; create roles and tick exactly which of 12 permissions they get (for example, a role that sees the send log but not email content). The built-in Owner role always has everything and the last active owner cannot be removed.
-- **Login protection**: 5 wrong passwords for an account from one IP (or 20 from one IP overall) lock sign-in for 30 minutes (`MAILROUTE_LOGIN_MAX_ATTEMPTS`, `MAILROUTE_LOGIN_LOCKOUT_MINUTES`).
+- **Login protection**: 5 wrong passwords for an account from one IP (or 20 from one IP overall) lock sign-in for 30 minutes (`MAILROUTE_LOGIN_MAX_ATTEMPTS`, `MAILROUTE_LOGIN_LOCKOUT_MINUTES`). Optional Google reCAPTCHA v2 (checkbox) or v3 (invisible score) on the sign-in page, configured under Settings; `php artisan app:captcha-off` or `MAILROUTE_CAPTCHA_DISABLED=true` turns it off if the keys are wrong.
 
 ## Stack
 
