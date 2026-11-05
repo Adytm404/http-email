@@ -39,3 +39,12 @@ Artisan::command('app:create-admin {email?} {--name=Admin}', function () {
 })->purpose('Create or reset a dashboard admin account');
 
 Schedule::command('emails:prune')->dailyAt('03:00');
+
+// Shared hosting without a process manager: let cron start a worker every
+// minute that polls the queue for ~55 seconds, so mail still goes out quickly.
+if (config('mailroute.queue_via_scheduler')) {
+    Schedule::command('queue:work --queue=emails,default --sleep=2 --max-time=55 --tries=4')
+        ->everyMinute()
+        ->withoutOverlapping(2)
+        ->runInBackground();
+}
