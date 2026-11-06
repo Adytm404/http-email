@@ -16,7 +16,7 @@
     </x-ui.page-header>
 
     {{-- Status tabs --}}
-    <div class="mb-4 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
+    <div class="-mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         @foreach (['' => 'All'] + array_combine(\App\Models\Email::STATUSES, array_map('ucfirst', \App\Models\Email::STATUSES)) as $value => $label)
             <button type="button" wire:click="$set('status', '{{ $value }}')" @class([
                 '-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-[13.5px] transition-colors',
@@ -57,7 +57,30 @@
         @if ($emails->isEmpty())
             <x-ui.empty title="No emails found" :description="($search || $status || $provider || $range) ? 'Try different filters.' : 'Emails sent through the API show up here.'" />
         @else
-            <table class="w-full min-w-[820px] text-sm">
+            {{-- Phones: one card per email --}}
+            <ul class="divide-y divide-line md:hidden">
+                @foreach ($emails as $e)
+                    <li wire:key="m-{{ $e->id }}">
+                        <button type="button" wire:click="open('{{ $e->id }}')" @class(['block w-full px-4 py-3.5 text-left transition-colors active:bg-surface-2', 'bg-accent-soft/60' => $previewId === $e->id])>
+                            <div class="flex items-baseline gap-3">
+                                <p class="min-w-0 flex-1 truncate text-[14px] font-medium">{{ implode(', ', $e->to) }}</p>
+                                <span class="shrink-0 text-[12px] text-muted">{{ $e->created_at->diffForHumans(short: true) }}</span>
+                            </div>
+                            <p class="mt-0.5 flex items-center gap-1.5 text-[13.5px]">
+                                <span class="truncate">{{ $e->subject }}</span>
+                                @if ($e->attachments_count)<x-ui.icon name="paperclip" class="size-3.5 text-subtle" />@endif
+                            </p>
+                            <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
+                                <x-ui.status :status="$e->status" />
+                                @if ($e->provider)<span class="max-w-40 truncate">{{ $e->provider->name }}</span>@endif
+                                @foreach (array_slice($e->tags ?? [], 0, 1) as $t)<span class="rounded bg-surface-2 px-1.5">{{ $t['name'] }}{{ ($t['value'] ?? '') !== '' ? ':'.$t['value'] : '' }}</span>@endforeach
+                            </div>
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+
+            <table class="hidden w-full min-w-[820px] text-sm md:table">
                 <thead>
                     <tr class="text-left text-[12px] text-muted">
                         <th class="px-6 py-3 font-medium">Recipient</th>
@@ -115,7 +138,7 @@
             </div>
 
             <div class="flex-1 overflow-y-auto">
-                <dl class="grid gap-x-4 gap-y-1.5 px-6 py-4 text-[13px] sm:grid-cols-[80px_1fr]">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-1.5 px-6 py-4 text-[13px] sm:grid-cols-[80px_1fr]">
                     <dt class="text-muted">From</dt><dd class="break-words">{{ $preview->from }}</dd>
                     <dt class="text-muted">To</dt><dd class="break-words">{{ implode(', ', $preview->to) }}</dd>
                     @if ($preview->cc)<dt class="text-muted">Cc</dt><dd class="break-words">{{ implode(', ', $preview->cc) }}</dd>@endif
@@ -130,7 +153,7 @@
 
                 <div class="mx-6 overflow-hidden rounded-2xl border border-line">
                     @can('view_email_content')
-                        <x-email-body :email="$preview" height="h-[420px]" />
+                        <x-email-body :email="$preview" height="h-[360px] sm:h-[420px]" />
                     @else
                         <div class="flex flex-col items-center px-6 py-12 text-center">
                             <x-ui.icon name="shield" class="size-6 text-subtle" />

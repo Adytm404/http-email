@@ -101,7 +101,7 @@
                     @error('form.name') <p class="mt-1.5 text-[13px] text-bad">{{ $message }}</p> @enderror
                 </div>
 
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     @foreach ($fields as $f)
                         <div wire:key="field-{{ $form['type'] }}-{{ $f['key'] }}" @class(['sm:col-span-2' => in_array($f['key'], ['api_key', 'host'])])>
                             <label for="cfg-{{ $f['key'] }}" class="label">{{ $f['label'] }}</label>

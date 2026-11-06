@@ -12,7 +12,32 @@
                 <x-ui.button wire:click="create">Create key</x-ui.button>
             </x-ui.empty>
         @else
-            <table class="w-full min-w-[640px] text-sm">
+            {{-- Phones: one card per key --}}
+            <ul class="divide-y divide-line md:hidden">
+                @foreach ($keys as $k)
+                    <li wire:key="mk-{{ $k->id }}" @class(['px-4 py-4', 'opacity-55' => $k->revoked_at])>
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="truncate text-[14px] font-medium">{{ $k->name }}</p>
+                                <p class="mt-0.5 font-mono text-[12.5px] text-muted">{{ $k->prefix }}…</p>
+                            </div>
+                            @if ($k->revoked_at)
+                                <x-ui.badge tone="bad">Revoked</x-ui.badge>
+                            @else
+                                <x-ui.badge :tone="$k->permission === 'full_access' ? 'accent' : 'neutral'" class="shrink-0">{{ \App\Models\ApiKey::PERMISSIONS[$k->permission] }}</x-ui.badge>
+                            @endif
+                        </div>
+                        <div class="mt-2 flex items-center justify-between gap-3 text-[12.5px] text-muted">
+                            <span>{{ number_format($k->emails_count) }} emails · used {{ $k->last_used_at?->diffForHumans(short: true) ?? 'never' }}</span>
+                            @unless ($k->revoked_at)
+                                <x-ui.button variant="ghost" size="sm" wire:click="revoke({{ $k->id }})" wire:confirm="Revoke {{ $k->name }}? Apps using it will get 403 immediately." class="text-bad hover:bg-bad-soft hover:text-bad">Revoke</x-ui.button>
+                            @endunless
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+
+            <table class="hidden w-full min-w-[640px] text-sm md:table">
                 <thead>
                     <tr class="text-left text-[12px] text-muted">
                         <th class="px-6 py-3 font-medium">Name</th>

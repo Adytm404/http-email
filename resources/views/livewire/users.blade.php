@@ -16,7 +16,40 @@
     </div>
 
     <x-ui.card :padding="false" class="relative overflow-x-auto">
-        <table class="w-full min-w-[720px] text-sm">
+        {{-- Phones: one card per user --}}
+        <ul class="divide-y divide-line md:hidden">
+            @forelse ($users as $u)
+                <li wire:key="mu-{{ $u->id }}" @class(['px-4 py-4', 'opacity-60' => ! $u->is_active])>
+                    <div class="flex items-center gap-3">
+                        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent">{{ $u->initials() }}</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-[14px] font-medium">{{ $u->name }} @if ($u->is(auth()->user()))<span class="text-[12px] font-normal text-muted">(you)</span>@endif</p>
+                            <p class="truncate text-[12.5px] text-muted">{{ $u->email }}</p>
+                        </div>
+                    </div>
+                    <div class="mt-2.5 flex flex-wrap items-center gap-2 pl-[52px] text-[12px] text-muted">
+                        @if ($u->role)
+                            <x-ui.badge :tone="$u->role->is_owner ? 'accent' : 'neutral'">{{ $u->role->name }}</x-ui.badge>
+                        @else
+                            <x-ui.badge tone="warn">No role</x-ui.badge>
+                        @endif
+                        <x-ui.badge :tone="$u->is_active ? 'ok' : 'neutral'" dot>{{ $u->is_active ? 'Active' : 'Deactivated' }}</x-ui.badge>
+                        <span>{{ $u->last_login_at?->diffForHumans(short: true) ?? 'Never signed in' }}</span>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1 pl-10">
+                        <x-ui.button variant="ghost" size="sm" wire:click="edit({{ $u->id }})">Edit</x-ui.button>
+                        @unless ($u->is(auth()->user()))
+                            <x-ui.button variant="ghost" size="sm" wire:click="toggleActive({{ $u->id }})">{{ $u->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                            <x-ui.button variant="ghost" size="sm" wire:click="delete({{ $u->id }})" wire:confirm="Remove {{ $u->name }}? They will lose access immediately." class="text-bad hover:bg-bad-soft hover:text-bad">Remove</x-ui.button>
+                        @endunless
+                    </div>
+                </li>
+            @empty
+                <li><x-ui.empty title="No users found" /></li>
+            @endforelse
+        </ul>
+
+        <table class="hidden w-full min-w-[720px] text-sm md:table">
             <thead>
                 <tr class="text-left text-[12px] text-muted">
                     <th class="px-6 py-3 font-medium">User</th>
@@ -67,7 +100,7 @@
     @if ($showForm)
         <x-ui.modal :title="$editingId ? 'Edit user' : 'Add user'" close="$set('showForm', false)">
             <form id="user-form" wire:submit="save" class="space-y-4">
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label for="u-name" class="label">Name</label>
                         <input id="u-name" wire:model="form.name" class="field" autocomplete="off">

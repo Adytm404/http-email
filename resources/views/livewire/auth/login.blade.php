@@ -1,4 +1,4 @@
-<div class="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+<div class="grid grid-cols-1 min-h-screen lg:grid-cols-[1.1fr_1fr]">
     {{-- Brand panel --}}
     <div class="relative hidden p-3 lg:block">
         <div class="panel-gradient relative flex h-full flex-col justify-between overflow-hidden rounded-[28px] p-12">

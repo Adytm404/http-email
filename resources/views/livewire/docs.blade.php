@@ -2,7 +2,7 @@
     <x-ui.page-header eyebrow="Docs" title="One line to change"
         description="The API follows Resend's request and response format. Point an existing Resend integration at this server, or call it with any HTTP client." />
 
-    <div class="grid gap-4 lg:grid-cols-[1fr_320px]">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div class="min-w-0 space-y-4">
             <x-ui.card :padding="false" x-data="{ tab: 'curl', copied: false }">
                 <div class="flex items-center justify-between gap-2 border-b border-line px-3 pt-2">
@@ -19,7 +19,7 @@
                 </div>
                 @foreach ($snippets as $key => $code)
                     <pre x-ref="{{ $key }}" x-show="tab === '{{ $key }}'" @if ($key !== 'curl') x-cloak @endif
-                         class="overflow-x-auto rounded-b-2xl bg-[#0b1120] p-5 font-mono text-[12.5px] leading-relaxed text-slate-200">{{ $code }}</pre>
+                         class="overflow-x-auto rounded-b-2xl bg-[#0b1120] p-4 font-mono text-[11.5px] sm:p-5 sm:text-[12.5px] leading-relaxed text-slate-200">{{ $code }}</pre>
                 @endforeach
             </x-ui.card>
 

@@ -6,7 +6,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="grid gap-4 lg:grid-cols-[1fr_340px]">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
         <x-ui.card :padding="false">
             @forelse ($rules as $i => $rule)
                 <div wire:key="rule-{{ $rule->id }}" class="flex flex-wrap gap-3 border-t border-line px-4 py-4 first:border-t-0 sm:flex-nowrap sm:px-5">
@@ -111,7 +111,7 @@
     @if ($showForm)
         <x-ui.modal :title="$editingId ? 'Edit route' : 'New route'" close="$set('showForm', false)" wide>
             <form id="route-form" wire:submit="save" class="space-y-5">
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label for="r-name" class="label">Name</label>
                         <input id="r-name" wire:model="form.name" class="field" placeholder="e.g. Gmail recipients">
@@ -133,7 +133,7 @@
                 @unless ($form['is_default'])
                     <div>
                         <p class="label">Conditions <span class="font-normal text-muted">(all must match)</span></p>
-                        <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label for="c-from" class="mb-1 block text-[12.5px] text-muted">From domain</label>
                                 <input id="c-from" wire:model="form.conditions.from_domain" class="field" placeholder="acme.com, *.acme.com">
@@ -166,11 +166,11 @@
                             : 'Tried in priority order (lowest first); the next one takes over when one fails or hits its limit.' }}
                     </p>
                     <div class="overflow-hidden rounded-xl border border-line">
-                        <div class="grid grid-cols-[1fr_80px_80px] gap-3 bg-canvas px-3 py-2 text-[12px] text-muted">
+                        <div class="grid grid-cols-[minmax(0,1fr)_80px_80px] gap-3 bg-canvas px-3 py-2 text-[12px] text-muted">
                             <span>Provider</span><span>Priority</span><span>Weight</span>
                         </div>
                         @forelse ($providers as $id => $p)
-                            <div wire:key="m-{{ $id }}" class="grid grid-cols-[1fr_80px_80px] items-center gap-3 border-t border-line px-3 py-2">
+                            <div wire:key="m-{{ $id }}" class="grid grid-cols-[minmax(0,1fr)_80px_80px] items-center gap-3 border-t border-line px-3 py-2">
                                 <label class="flex min-w-0 items-center gap-2 text-sm">
                                     <input type="checkbox" wire:model.live="members.{{ $id }}.enabled" class="size-4 accent-[#1677ff]">
                                     <x-ui.provider-icon :type="$p->type" class="size-5 text-[10px]" />

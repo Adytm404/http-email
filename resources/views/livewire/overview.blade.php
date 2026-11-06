@@ -35,7 +35,7 @@
     </div>
 
     {{-- Headline --}}
-    <div class="grid gap-4 xl:grid-cols-[1.25fr_1fr]">
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_1fr]">
         <div class="panel-gradient anim-fade-up relative overflow-hidden rounded-3xl p-6 sm:p-7">
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -85,7 +85,7 @@
     </div>
 
     {{-- Volume chart + status donut --}}
-    <div class="mt-4 grid gap-4 xl:grid-cols-[1fr_340px]">
+    <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
         <x-ui.card wire:key="chart-{{ $range }}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
@@ -172,7 +172,7 @@
         </x-ui.card>
     </div>
 
-    <div class="mt-4 grid gap-4 xl:grid-cols-3">
+    <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
         {{-- Providers --}}
         <x-ui.card :padding="false" wire:key="prov-{{ $range }}">
             <div class="flex items-center justify-between px-6 pb-3 pt-5">

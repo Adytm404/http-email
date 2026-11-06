@@ -1,7 +1,7 @@
 <div>
     <x-ui.page-header eyebrow="Emails" title="Send an email" description="Goes through the same queue, routing and failover as the API." />
 
-    <form wire:submit="send" class="grid gap-4 2xl:grid-cols-[1fr_1fr]">
+    <form wire:submit="send" class="grid grid-cols-1 gap-4 2xl:grid-cols-[1fr_1fr]">
         <div class="space-y-4">
             <x-ui.card>
                 <div class="space-y-4">
@@ -19,7 +19,7 @@
                         @error('to') <p class="mt-1.5 text-[13px] text-bad">{{ $message }}</p> @enderror
                     </div>
                     @if ($showCopies)
-                        <div class="grid gap-4 sm:grid-cols-3">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
                                 <label for="c-cc" class="label">Cc</label>
                                 <input id="c-cc" wire:model="cc" class="field">
@@ -71,7 +71,7 @@
 
         <div class="space-y-4">
             <x-ui.card>
-                <div class="grid gap-4 sm:grid-cols-3">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                         <label for="c-tags" class="label">Tags</label>
                         <input id="c-tags" wire:model="tags" class="field" placeholder="category:welcome">
@@ -99,9 +99,9 @@
                 </div>
                 <div class="bg-white">
                     @if ($format === 'html' && trim($html) !== '')
-                        <iframe srcdoc="{{ $html }}" sandbox referrerpolicy="no-referrer" class="h-[420px] w-full" title="Preview"></iframe>
+                        <iframe srcdoc="{{ $html }}" sandbox referrerpolicy="no-referrer" class="h-[320px] w-full sm:h-[420px]" title="Preview"></iframe>
                     @else
-                        <pre class="h-[420px] overflow-auto whitespace-pre-wrap p-5 text-[13.5px] text-slate-800">{{ $text ?: 'Nothing to preview yet.' }}</pre>
+                        <pre class="h-[320px] overflow-auto sm:h-[420px] whitespace-pre-wrap p-5 text-[13.5px] text-slate-800">{{ $text ?: 'Nothing to preview yet.' }}</pre>
                     @endif
                 </div>
             </x-ui.card>

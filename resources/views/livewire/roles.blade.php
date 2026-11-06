@@ -8,7 +8,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
         @foreach ($roles as $role)
             @php $perms = $role->effectivePermissions(); @endphp
             <x-ui.card wire:key="role-{{ $role->id }}" class="flex flex-col">
@@ -52,7 +52,7 @@
     @if ($showForm)
         <x-ui.modal :title="$editingId ? 'Edit role' : 'New role'" close="$set('showForm', false)" wide>
             <form id="role-form" wire:submit="save" class="space-y-5">
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label for="r-name" class="label">Name</label>
                         <input id="r-name" wire:model="name" class="field" placeholder="e.g. Support">

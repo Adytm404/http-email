@@ -15,7 +15,7 @@
         <x-ui.card>
             <h2 class="text-[15px] font-semibold">Failover</h2>
             <p class="mt-1 text-[13px] text-muted">After this many failures in a row, a provider is skipped for the cooldown period. The next email after the cooldown checks whether it recovered.</p>
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <label for="s-threshold" class="label">Failures before skipping</label>
                     <input id="s-threshold" type="number" min="1" wire:model="breaker_threshold" class="field">
@@ -63,7 +63,7 @@
 
             <div class="mt-5">
                 <span class="label">Mode</span>
-                <div class="grid gap-2 sm:grid-cols-3">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     @foreach ([
                         'off' => ['Off', 'No captcha on sign-in.'],
                         'v2' => ['reCAPTCHA v2', '"I\'m not a robot" checkbox.'],

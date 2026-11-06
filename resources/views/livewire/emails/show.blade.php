@@ -28,7 +28,7 @@
         <div class="mb-4 rounded-2xl border border-bad/25 bg-bad-soft px-5 py-3.5 text-sm text-bad">{{ $email->failed_reason }}</div>
     @endif
 
-    <div class="grid gap-4 lg:grid-cols-[1fr_360px]">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         <div class="min-w-0 space-y-4">
             <x-ui.card :padding="false">
                 <dl class="text-sm">
@@ -39,7 +39,7 @@
                         'Bcc' => $email->bcc ? implode(', ', $email->bcc) : null,
                         'Reply-To' => $email->reply_to ? implode(', ', $email->reply_to) : null,
                     ]) as $label => $value)
-                        <div class="grid gap-0.5 border-t border-line px-5 py-3 first:border-t-0 sm:grid-cols-[120px_1fr] sm:gap-4">
+                        <div class="grid grid-cols-1 gap-0.5 border-t border-line px-5 py-3 first:border-t-0 sm:grid-cols-[120px_1fr] sm:gap-4">
                             <dt class="text-muted">{{ $label }}</dt>
                             <dd class="break-words">{{ $value }}</dd>
                         </div>
@@ -49,7 +49,7 @@
 
             <x-ui.card :padding="false" class="overflow-hidden">
                 @can('view_email_content')
-                    <x-email-body :email="$email" height="h-[600px]" />
+                    <x-email-body :email="$email" height="h-[420px] sm:h-[600px]" />
                 @else
                     <div class="flex flex-col items-center px-6 py-16 text-center">
                         <x-ui.icon name="shield" class="size-6 text-subtle" />
