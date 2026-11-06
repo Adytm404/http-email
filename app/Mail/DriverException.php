@@ -23,8 +23,16 @@ class DriverException extends RuntimeException
         public readonly ?string $errorCode = null,
         public readonly array $response = [],
         ?Throwable $previous = null,
+        /** Set when the provider ran out of sending quota: skip it for this long. */
+        public readonly ?int $pauseSeconds = null,
     ) {
         parent::__construct($message, 0, $previous);
+    }
+
+    /** The provider's own sending limit was hit (e.g. Gmail's daily limit): try the next one and rest this one. */
+    public static function quota(string $message, ?string $code = null, int $pauseSeconds = 3600, array $response = []): self
+    {
+        return new self($message, retryable: true, providerFault: false, errorCode: $code, response: $response, pauseSeconds: $pauseSeconds);
     }
 
     public static function permanent(string $message, ?string $code = null, array $response = []): self

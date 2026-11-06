@@ -23,6 +23,17 @@ class CircuitBreaker
         ])->save();
     }
 
+    /** The provider hit its own sending limit: skip it until the pause ends, then probe again. */
+    public function pause(Provider $provider, int $seconds, string $error): void
+    {
+        $provider->forceFill([
+            'health' => 'limited',
+            'cooldown_until' => now()->addSeconds($seconds),
+            'last_error' => mb_substr($error, 0, 2000),
+            'last_used_at' => now(),
+        ])->save();
+    }
+
     public function recordFailure(Provider $provider, string $error): void
     {
         $threshold = max(1, (int) Setting::get('breaker_threshold'));

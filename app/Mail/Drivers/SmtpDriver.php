@@ -124,23 +124,58 @@ class SmtpDriver implements EmailDriver
 
     private function classify(TransportExceptionInterface $e): DriverException
     {
-        $code = (int) $e->getCode();
-        $msg = mb_substr($e->getMessage(), 0, 1000);
+        $result = self::classifyReply((int) $e->getCode(), $e->getMessage());
+
+        return $result->providerFault
+            ? DriverException::providerDown($result->getMessage(), $result->errorCode, previous: $e)
+            : $result;
+    }
+
+    /**
+     * Decide what an SMTP error means for routing.
+     *
+     * The basic reply code alone is not enough: Gmail answers "550 5.4.5 Daily user
+     * sending limit exceeded", which is the sender's quota, not a bad recipient.
+     * The enhanced status code (RFC 3463, "class.subject.detail") tells them apart.
+     */
+    public static function classifyReply(int $code, string $message): DriverException
+    {
+        $msg = mb_substr($message, 0, 1000);
+        $enhanced = preg_match('/\b[245]\.(\d{1,3})\.(\d{1,3})\b/', $msg, $m) ? [(int) $m[1], (int) $m[2]] : null;
+
+        // x.1.x (address) and x.2.x (mailbox, e.g. "5.2.2 mailbox over quota") are about the
+        // recipient, whatever the wording: a 5xx stops here, a 4xx is retried later.
+        if ($enhanced !== null && in_array($enhanced[0], [1, 2], true) && $code >= 400) {
+            return $code >= 500
+                ? DriverException::permanent($msg, (string) $code)
+                : DriverException::transient($msg, (string) $code);
+        }
+
+        // Sending quota or rate limit of this account: rest the provider and use the next one.
+        // x.4.5 = "mail system congestion / quota", plus the wording providers use for limits.
+        if (($enhanced === [4, 5]) || preg_match('/(sending|daily|hourly|rate)\s+limit|limit\s+exceeded|quota\s+exceeded|over\s+quota|too many (messages|emails|connections)/i', $msg)) {
+            $daily = (bool) preg_match('/daily|24.?hour|per day/i', $msg);
+
+            return DriverException::quota($msg, (string) ($code ?: 'quota'), $daily ? 3600 : 900);
+        }
 
         // 0 = could not connect / TLS failure; 421 = service unavailable;
         // 530/534/535/504 = authentication problems — all mean the provider is unusable.
         if ($code === 0 || in_array($code, [421, 504, 530, 534, 535], true)) {
-            return DriverException::providerDown($msg, $code ? (string) $code : 'connection', previous: $e);
+            return DriverException::providerDown($msg, $code ? (string) $code : 'connection');
         }
 
-        // 550-553: mailbox unavailable / bad address / too large. The message
-        // itself is the problem, so other providers would reject it too.
+        // 550-553 about the recipient's address or mailbox (x.1.x, x.2.x) or the message
+        // size (x.3.4): every provider would get the same answer, so stop here.
         if (in_array($code, [550, 551, 552, 553], true)) {
-            return DriverException::permanent($msg, (string) $code);
+            $aboutRecipient = $enhanced === null || in_array($enhanced[0], [1, 2], true) || $enhanced === [3, 4];
+            if ($aboutRecipient) {
+                return DriverException::permanent($msg, (string) $code);
+            }
         }
 
-        // Other 4xx/5xx (greylisting, 554 policy rejections such as an
-        // unverified sender at this provider): worth trying the next provider.
+        // Anything else (policy 5.7.x such as an unverified sender at this provider,
+        // greylisting, 554 rejections): worth trying the next provider.
         return DriverException::transient($msg, (string) $code);
     }
 }

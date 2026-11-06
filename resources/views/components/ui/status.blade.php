@@ -5,7 +5,7 @@
         'sent', 'healthy' => 'ok',
         'failed', 'down' => 'bad',
         'queued', 'sending', 'scheduled' => 'accent',
-        'degraded' => 'warn',
+        'degraded', 'limited' => 'warn',
         default => 'neutral',
     };
 @endphp

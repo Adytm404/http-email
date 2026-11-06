@@ -44,6 +44,7 @@ class FakeDriverFactory extends DriverFactory
                     'down' => throw DriverException::providerDown('connection refused', 'connection'),
                     'reject' => throw DriverException::permanent('550 mailbox unavailable', '550'),
                     'transient' => throw DriverException::transient('451 try later', '451'),
+                    'quota' => throw \App\Mail\Drivers\SmtpDriver::classifyReply(550, 'Expected response code "354" but got code "550", with message "550-5.4.5 Daily user sending limit exceeded."'),
                     default => new DriverResult('msg-'.$this->provider->name),
                 };
             }

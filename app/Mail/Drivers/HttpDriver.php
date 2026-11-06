@@ -42,6 +42,7 @@ abstract class HttpDriver implements EmailDriver
         return match (true) {
             // Bad or revoked credentials, wrong domain/region: the provider is unusable.
             in_array($status, [401, 403, 404], true) => DriverException::providerDown($message, $code, $body),
+            $status === 429 && preg_match('/daily|quota|per day|monthly/i', $message) => DriverException::quota($message, $code, 3600, $body),
             $status === 429 => DriverException::transient($message, $code, $body),
             $status >= 500 => DriverException::providerDown($message, $code, $body),
             // 400 / 422: the provider rejected this particular message.

@@ -45,6 +45,27 @@ class RoutingTest extends TestCase
         $this->assertSame(['failed', 'sent'], $email->attemptLogs->pluck('status')->all());
     }
 
+    public function test_sending_limit_falls_back_and_rests_the_provider(): void
+    {
+        $this->rule('default', ['Gmail A' => [1, 100], 'Gmail B' => [2, 100]], ['is_default' => true]);
+        $this->drivers->behave('Gmail A', 'quota');
+
+        $email = $this->send($this->email());
+
+        $this->assertSame('sent', $email->status);
+        $this->assertSame('Gmail B', $email->provider->name);
+
+        $a = Provider::where('name', 'Gmail A')->first();
+        $this->assertSame('limited', $a->health);
+        $this->assertTrue($a->isCoolingDown());
+        $this->assertEqualsWithDelta(3600, now()->diffInSeconds($a->cooldown_until), 5);
+
+        // The next email skips the exhausted account entirely.
+        $this->drivers->sent = [];
+        $this->send($this->email());
+        $this->assertSame(['Gmail B'], array_column($this->drivers->sent, 0));
+    }
+
     public function test_permanent_rejection_stops_without_trying_others(): void
     {
         $this->rule('default', ['A' => [1, 100], 'B' => [2, 100]], ['is_default' => true]);

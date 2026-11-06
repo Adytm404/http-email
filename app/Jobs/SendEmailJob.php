@@ -79,7 +79,10 @@ class SendEmailJob implements ShouldQueue
                 $quota->release($provider);
                 $this->log($email, $provider, 'failed', $e->errorCode, $e->getMessage(), $e->response, $started);
 
-                if ($e->providerFault) {
+                if ($e->pauseSeconds) {
+                    // Out of sending quota: rest this provider so the next emails go straight elsewhere.
+                    $breaker->pause($provider, $e->pauseSeconds, $e->getMessage());
+                } elseif ($e->providerFault) {
                     $breaker->recordFailure($provider, $e->getMessage());
                 }
 
