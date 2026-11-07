@@ -1,6 +1,7 @@
 <button type="button"
-        x-data="{ dark: document.documentElement.classList.contains('dark') }"
-        x-on:click="dark = !dark; document.documentElement.classList.toggle('dark', dark); try { localStorage.setItem('theme', dark ? 'dark' : 'light') } catch (e) {}"
+        x-data="{ dark: window.mailroute.theme.isDark() }"
+        x-on:theme-changed.window="dark = $event.detail.dark"
+        x-on:click="window.mailroute.theme.set(!dark)"
         class="grid size-9 place-items-center rounded-[4px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         :aria-label="dark ? 'Switch to light mode' : 'Switch to dark mode'">
     <svg x-show="!dark" class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>

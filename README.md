@@ -121,7 +121,7 @@ composer install
 npm install && npm run build
 cp .env.example .env
 php artisan key:generate
-# set APP_URL and the DB_* values in .env
+# set APP_URL and the DB_* values in .env (for local development also set APP_ENV=local, APP_DEBUG=true)
 php artisan migrate
 ```
 
@@ -133,7 +133,7 @@ php artisan serve
 php artisan queue:work --queue=emails,default
 ```
 
-Open `http://localhost:8000` and create the first admin (in production the setup page needs `?setup=<MAILROUTE_SETUP_TOKEN>`, or run `php artisan app:create-admin you@example.com`). Then add a provider, an API key, and send.
+Create the first admin with `php artisan app:create-admin you@example.com`, or open the login page with `?setup=<MAILROUTE_SETUP_TOKEN>` (set a long random token in `.env`; with `APP_ENV=local` a direct visit from the same machine needs no token). Then add a provider, an API key, and send.
 
 Want the dashboard full of data like the screenshots? Seed a separate schema:
 
@@ -195,7 +195,7 @@ WantedBy=multi-user.target
 * * * * * cd /var/www/mailroute && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Shared hosting (cPanel)**: clone into the subdomain folder, point the document root at `public/` (or rewrite to it with `.htaccess`), set `MAILROUTE_QUEUE_VIA_SCHEDULER=true`, and add the single `schedule:run` cron above. The scheduler then starts a worker every minute that polls the queue for 55 seconds. If outgoing SMTP is redirected to the local mail server, turn off *SMTP Restrictions* in WHM to use external SMTP providers.
+**Shared hosting (cPanel)**: clone into the subdomain folder, keep `APP_ENV=production` and `APP_DEBUG=false`, set `SESSION_SECURE_COOKIE=true` behind HTTPS, point the document root at `public/` (or rewrite to it with `.htaccess`), set `MAILROUTE_QUEUE_VIA_SCHEDULER=true`, and add the single `schedule:run` cron above. The scheduler then starts a worker every minute that polls the queue for 55 seconds. If outgoing SMTP is redirected to the local mail server, turn off *SMTP Restrictions* in WHM to use external SMTP providers.
 
 ## Configuration
 
@@ -203,7 +203,8 @@ WantedBy=multi-user.target
 | --- | --- | --- |
 | `MAILROUTE_API_RATE_LIMIT` | `600` | API requests per minute per key |
 | `MAILROUTE_QUEUE_VIA_SCHEDULER` | `false` | Start the queue worker from cron (shared hosting) |
-| `MAILROUTE_SETUP_TOKEN` | | Required as `?setup=` to create the first admin in production |
+| `MAILROUTE_SETUP_TOKEN` | | Required as `?setup=` to create the first admin from the login page (any environment, except a direct local visit under `APP_ENV=local`) |
+| `MAILROUTE_ALLOW_PRIVATE_ATTACHMENT_URLS` | `false` | Allow `attachments[].path` to fetch private/internal addresses and non-80/443 ports |
 | `MAILROUTE_LOGIN_MAX_ATTEMPTS` | `5` | Wrong passwords before an account is locked |
 | `MAILROUTE_LOGIN_LOCKOUT_MINUTES` | `30` | Lockout length |
 | `MAILROUTE_CAPTCHA_DISABLED` | `false` | Ignore the reCAPTCHA setting (recovery switch) |

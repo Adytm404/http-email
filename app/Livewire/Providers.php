@@ -9,6 +9,7 @@ use App\Models\Provider;
 use App\Models\Setting;
 use App\Routing\QuotaManager;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -71,6 +72,15 @@ class Providers extends Component
         $fields = DriverFactory::fields()[$this->form['type']] ?? [];
         $existing = $this->editingId ? Provider::findOrFail($this->editingId) : null;
 
+        // The provider type cannot change while editing; only the radio is disabled client-side.
+        if ($existing && ($this->form['type'] ?? null) !== $existing->type) {
+            throw ValidationException::withMessages(['form.type' => 'The provider type cannot be changed. Create a new provider instead.']);
+        }
+
+        // A stored secret may only be kept while the connection details it was saved with are unchanged.
+        // Otherwise a blank password would be silently sent to whatever host/user was just typed in.
+        $keepSecrets = $existing && ! $this->connectionChanged($fields, $existing);
+
         $rules = [
             'form.name' => ['required', 'string', 'max:100'],
             'form.type' => ['required', Rule::in(array_keys(Provider::TYPES))],
@@ -81,15 +91,22 @@ class Providers extends Component
             'form.limit_per_day' => ['nullable', 'integer', 'min:1'],
         ];
         foreach ($fields as $f) {
-            $required = ! empty($f['required']) && ! (! empty($f['secret']) && $existing);
+            $required = ! empty($f['required']) && ! (! empty($f['secret']) && $keepSecrets);
             $rules['config.'.$f['key']] = [$required ? 'required' : 'nullable', $f['type'] === 'number' ? 'integer' : 'string'];
         }
-        $this->validate($rules, [], collect($fields)->mapWithKeys(fn ($f) => ['config.'.$f['key'] => strtolower($f['label'])])->all());
+        $messages = [];
+        foreach ($fields as $f) {
+            if (! empty($f['secret']) && $existing && ! $keepSecrets) {
+                $rules['config.'.$f['key']][0] = 'required';
+                $messages['config.'.$f['key'].'.required'] = 'Re-enter the '.strtolower($f['label']).': the connection details changed, so the saved one is not reused.';
+            }
+        }
+        $this->validate($rules, $messages, collect($fields)->mapWithKeys(fn ($f) => ['config.'.$f['key'] => strtolower($f['label'])])->all());
 
         $config = [];
         foreach ($fields as $f) {
             $value = $this->config[$f['key']] ?? null;
-            if (! empty($f['secret']) && ($value === null || $value === '') && $existing) {
+            if (! empty($f['secret']) && ($value === null || $value === '') && $keepSecrets) {
                 $value = $existing->config[$f['key']] ?? null;
             }
             $config[$f['key']] = $f['type'] === 'number' && $value !== null && $value !== '' ? (int) $value : $value;
@@ -110,6 +127,22 @@ class Providers extends Component
 
         $this->showForm = false;
         $this->dispatch('toast', message: $existing ? 'Provider updated' : 'Provider added');
+    }
+
+    /** True when any non-secret field (host, port, user, domain, ...) differs from what is stored. */
+    private function connectionChanged(array $fields, Provider $existing): bool
+    {
+        foreach ($fields as $f) {
+            if (! empty($f['secret'])) {
+                continue;
+            }
+            $stored = $existing->config[$f['key']] ?? $f['default'] ?? '';
+            if ((string) ($this->config[$f['key']] ?? '') !== (string) $stored) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function toggle(int $id): void

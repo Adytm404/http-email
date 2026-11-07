@@ -16,7 +16,7 @@
         <div>
             <p class="eyebrow mb-2">Overview</p>
             <h1 class="text-[28px] font-semibold leading-tight tracking-tight sm:text-[34px]">{{ $greeting }}, {{ strtok(auth()->user()->name, ' ') }}</h1>
-            <p class="mt-2 text-[15px] text-muted">Mail traffic for the last {{ $ranges[$range] }}.</p>
+            <p class="mt-2 text-[15px] text-muted">{{ $range === 1 ? 'Mail traffic today.' : 'Mail traffic for the last '.$ranges[$range].'.' }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <div class="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group" aria-label="Time range">
@@ -43,7 +43,7 @@
                     <p class="mt-4 text-[56px] font-light leading-none tracking-tight tabular-nums sm:text-[72px]"><x-ui.count :value="$sent" id="sent" /></p>
                 </div>
                 @if ($trend !== null)
-                    <span class="glass rounded-full px-3 py-1 text-[12.5px]">{{ $trend >= 0 ? '▲' : '▼' }} {{ abs($trend) }}% vs previous {{ $ranges[$range] }}</span>
+                    <span class="glass rounded-full px-3 py-1 text-[12.5px]">{{ $trend >= 0 ? '▲' : '▼' }} {{ abs($trend) }}% vs {{ $range === 1 ? 'yesterday so far' : 'previous '.$ranges[$range] }}</span>
                 @endif
             </div>
             {{-- Sparkline of delivered per day --}}
@@ -89,8 +89,8 @@
         <x-ui.card wire:key="chart-{{ $range }}">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                    <h2 class="text-[15px] font-semibold">Volume per day</h2>
-                    <p class="text-[13px] text-muted">{{ number_format($total) }} emails accepted in this period</p>
+                    <h2 class="text-[15px] font-semibold">Volume per {{ $hourly ? 'hour' : 'day' }}</h2>
+                    <p class="text-[13px] text-muted">{{ number_format($total) }} emails accepted {{ $range === 1 ? 'today' : 'in this period' }}</p>
                 </div>
                 <div class="flex items-center gap-4 text-[12px] text-muted">
                     <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-accent"></span>Delivered</span>
@@ -110,7 +110,7 @@
                     <div class="pointer-events-none absolute inset-x-0 top-0 flex h-[232px] flex-col justify-between">
                         @for ($v = 0; $v < 5; $v++)<div class="border-t border-dashed border-line"></div>@endfor
                     </div>
-                    <div class="relative flex h-64 items-end gap-[3px] sm:gap-1.5" role="img" aria-label="Emails per day">
+                    <div class="relative flex h-64 items-end gap-[3px] sm:gap-1.5" role="img" aria-label="Emails per {{ $hourly ? 'hour' : 'day' }}">
                         @foreach ($days as $i => $d)
                             @php $edge = $i < 2 ? 'left-0' : ($i > $days->count() - 3 ? 'right-0' : 'left-1/2 -translate-x-1/2'); @endphp
                             <div class="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">

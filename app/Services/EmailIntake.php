@@ -6,10 +6,11 @@ use App\Jobs\SendEmailJob;
 use App\Models\ApiKey;
 use App\Models\Email;
 use App\Models\Setting;
+use App\Support\SafeFetchException;
+use App\Support\SafeFetcher;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -224,15 +225,12 @@ class EmailIntake
                 }
             } else {
                 try {
-                    $response = Http::timeout(15)->get($a['path']);
-                } catch (Throwable $e) {
-                    throw ValidationException::withMessages(["attachments.{$i}.path" => 'Could not download attachment: '.$e->getMessage()]);
+                    $fetched = app(SafeFetcher::class)->fetch($a['path'], max(0, self::MAX_ATTACHMENT_BYTES - $total));
+                } catch (SafeFetchException $e) {
+                    throw ValidationException::withMessages(["attachments.{$i}.path" => $e->getMessage()]);
                 }
-                if (! $response->successful()) {
-                    throw ValidationException::withMessages(["attachments.{$i}.path" => "Could not download attachment (HTTP {$response->status()})."]);
-                }
-                $content = $response->body();
-                $a['content_type'] ??= strtok((string) $response->header('Content-Type'), ';') ?: null;
+                $content = $fetched['body'];
+                $a['content_type'] ??= $fetched['content_type'];
             }
 
             $total += strlen($content);

@@ -42,15 +42,25 @@ class Login extends Component
             return;
         }
 
-        // In production the first admin can only be created with ?setup=<MAILROUTE_SETUP_TOKEN>
-        // (or with `php artisan app:create-admin`), so a fresh deploy is not open to strangers.
+        // The first admin needs ?setup=<MAILROUTE_SETUP_TOKEN> (or php artisan app:create-admin),
+        // whatever APP_ENV says, so a fresh deploy is never open to strangers. The only exception is
+        // a local/testing environment reached directly from this machine, with no token configured.
         $token = (string) config('mailroute.setup_token');
         $allowed = $token !== ''
             ? hash_equals($token, (string) request()->query('setup'))
-            : ! app()->isProduction();
+            : $this->isDirectLocalVisit();
 
         $this->setup = $allowed;
         $this->setupLocked = ! $allowed;
+    }
+
+    /** Local/testing environment, and the request comes straight from this machine (no proxy in between). */
+    private function isDirectLocalVisit(): bool
+    {
+        return app()->environment(['local', 'testing'])
+            && in_array(request()->server('REMOTE_ADDR'), ['127.0.0.1', '::1'], true)
+            && ! request()->headers->has('X-Forwarded-For')
+            && ! request()->headers->has('Forwarded');
     }
 
     public function login()

@@ -113,7 +113,7 @@
                                 </select>
                             @else
                                 <input id="cfg-{{ $f['key'] }}" wire:model="config.{{ $f['key'] }}" type="{{ $f['type'] }}" class="field"
-                                       placeholder="{{ ! empty($f['secret']) && $editingId ? 'Leave blank to keep current' : ($f['hint'] ?? '') }}"
+                                       placeholder="{{ ! empty($f['secret']) && $editingId ? 'Leave blank to keep current (re-enter it if you change the connection details)' : ($f['hint'] ?? '') }}"
                                        autocomplete="off">
                             @endif
                             @error('config.'.$f['key']) <p class="mt-1.5 text-[13px] text-bad">{{ $message }}</p> @enderror

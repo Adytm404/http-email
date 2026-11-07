@@ -13,7 +13,7 @@ use Livewire\Component;
 #[Title('Overview')]
 class Overview extends Component
 {
-    public const RANGES = [7 => '7 days', 14 => '14 days', 30 => '30 days'];
+    public const RANGES = [1 => 'Today', 7 => '7 days', 14 => '14 days', 30 => '30 days'];
 
     #[Url(except: 7)]
     public int $range = 7;
@@ -33,21 +33,25 @@ class Overview extends Component
         $since = $today->subDays($range - 1);
         $inRange = fn () => Email::where('created_at', '>=', $since);
 
+        // "Today" is charted per hour, every other range per day.
+        $hourly = $range === 1;
+        $bucket = $hourly ? "to_char(date_trunc('hour', created_at), 'YYYY-MM-DD HH24')" : "date_trunc('day', created_at)::date";
+
         $daily = $inRange()
             ->whereIn('status', ['sent', 'failed'])
-            ->selectRaw("date_trunc('day', created_at)::date as day, status, count(*) as n")
+            ->selectRaw("{$bucket} as day, status, count(*) as n")
             ->groupBy('day', 'status')
             ->get()
             ->groupBy(fn ($r) => (string) $r->day);
 
-        $days = collect(range(0, $range - 1))->map(function ($i) use ($since, $daily) {
-            $d = $since->addDays($i);
-            $rows = $daily->get($d->toDateString(), collect());
+        $days = collect(range(0, ($hourly ? 24 : $range) - 1))->map(function ($i) use ($since, $daily, $hourly) {
+            $d = $hourly ? $since->addHours($i) : $since->addDays($i);
+            $rows = $daily->get($hourly ? $d->format('Y-m-d H') : $d->toDateString(), collect());
 
             return [
-                'label' => $d->format($i === 0 || $d->day === 1 ? 'j M' : 'j'),
-                'weekday' => $d->format('D'),
-                'date' => $d->format('D, j M'),
+                'label' => $hourly ? $d->format('H') : $d->format($i === 0 || $d->day === 1 ? 'j M' : 'j'),
+                'weekday' => $hourly ? $d->format('H') : $d->format('D'),
+                'date' => $hourly ? $d->format('D, j M · H:00') : $d->format('D, j M'),
                 'sent' => (int) $rows->firstWhere('status', 'sent')?->n,
                 'failed' => (int) $rows->firstWhere('status', 'failed')?->n,
             ];
@@ -58,8 +62,11 @@ class Overview extends Component
         $failed = $statusCounts['failed'] ?? 0;
         $total = $statusCounts->sum();
 
+        // Today is compared with yesterday up to the same time of day, so an early morning is not a false drop.
         $prevSent = Email::where('status', 'sent')
-            ->whereBetween('created_at', [$since->subDays($range), $since])
+            ->whereBetween('created_at', $range === 1
+                ? [$since->subDay(), CarbonImmutable::now()->subDay()]
+                : [$since->subDays($range), $since])
             ->count();
 
         $avgSeconds = $inRange()->where('status', 'sent')->whereNull('scheduled_at')
@@ -97,6 +104,7 @@ class Overview extends Component
             'topDomains' => $topDomains,
             'recent' => Email::with('provider')->latest()->limit(6)->get(),
             'ranges' => self::RANGES,
+            'hourly' => $hourly,
         ]);
     }
 

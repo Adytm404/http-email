@@ -16,4 +16,7 @@ return [
 
     // Required (as ?setup=...) to create the first admin from the login page in production.
     'setup_token' => env('MAILROUTE_SETUP_TOKEN'),
+
+    // attachments[].path may only fetch public hosts on ports 80/443; set true to allow private/internal URLs.
+    'allow_private_attachment_urls' => (bool) env('MAILROUTE_ALLOW_PRIVATE_ATTACHMENT_URLS', false),
 ];
