@@ -16,7 +16,7 @@ class Provider extends Model
     ];
 
     protected $fillable = [
-        'name', 'type', 'config', 'is_active', 'priority', 'weight',
+        'name', 'type', 'from_address', 'config', 'is_active', 'priority', 'weight',
         'limit_per_minute', 'limit_per_hour', 'limit_per_day',
         'health', 'consecutive_failures', 'cooldown_until', 'last_error', 'last_used_at',
     ];

@@ -74,7 +74,7 @@ class SendEmailJob implements ShouldQueue
             $started = hrtime(true);
 
             try {
-                $result = $drivers->make($provider)->send($message);
+                $result = $drivers->make($provider)->send($message->forProvider($provider));
             } catch (DriverException $e) {
                 $quota->release($provider);
                 $this->log($email, $provider, 'failed', $e->errorCode, $e->getMessage(), $e->response, $started);

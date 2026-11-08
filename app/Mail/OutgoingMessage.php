@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Email;
+use App\Models\Provider;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Mime\Address;
 
@@ -57,6 +58,45 @@ final class OutgoingMessage
             headers: $email->headers ?? [],
             tags: $email->tags ?? [],
             attachments: $attachments,
+        );
+    }
+
+    /**
+     * The message as it is sent through one provider. A provider with a default sender replaces the From
+     * (keeping the display name of the original when the default has none) and the original sender
+     * becomes the Reply-To, so replies still reach whoever the email was written for.
+     */
+    public function forProvider(Provider $provider): self
+    {
+        $default = trim((string) $provider->from_address);
+        if ($default === '') {
+            return $this;
+        }
+
+        try {
+            $new = Address::create($default);
+            $original = Address::create($this->from);
+        } catch (\Throwable) {
+            return $this;
+        }
+
+        $name = $new->getName() !== '' ? $new->getName() : $original->getName();
+        $from = $name !== '' ? (new Address($new->getAddress(), $name))->toString() : $new->getAddress();
+        $differs = strcasecmp($new->getAddress(), $original->getAddress()) !== 0;
+
+        return new self(
+            id: $this->id,
+            from: $from,
+            to: $this->to,
+            subject: $this->subject,
+            html: $this->html,
+            text: $this->text,
+            cc: $this->cc,
+            bcc: $this->bcc,
+            replyTo: $this->replyTo === [] && $differs ? [$this->from] : $this->replyTo,
+            headers: $this->headers,
+            tags: $this->tags,
+            attachments: $this->attachments,
         );
     }
 

@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Routing\QuotaManager;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mime\Address;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -53,7 +54,7 @@ class Providers extends Component
     {
         $p = Provider::findOrFail($id);
         $this->editingId = $p->id;
-        $this->form = $p->only(['name', 'type', 'is_active', 'priority', 'weight', 'limit_per_minute', 'limit_per_hour', 'limit_per_day']);
+        $this->form = $p->only(['name', 'type', 'from_address', 'is_active', 'priority', 'weight', 'limit_per_minute', 'limit_per_hour', 'limit_per_day']);
 
         // Secrets are never sent to the browser; blank means "keep current".
         $this->config = collect(DriverFactory::fields()[$p->type])
@@ -84,6 +85,15 @@ class Providers extends Component
         $rules = [
             'form.name' => ['required', 'string', 'max:100'],
             'form.type' => ['required', Rule::in(array_keys(Provider::TYPES))],
+            'form.from_address' => ['nullable', 'string', 'max:320', function (string $attribute, mixed $value, \Closure $fail) {
+                try {
+                    if (trim((string) $value) !== '') {
+                        Address::create(trim((string) $value));
+                    }
+                } catch (\Throwable) {
+                    $fail('Enter a valid sender, like noreply@example.com or Acme <noreply@example.com>.');
+                }
+            }],
             'form.priority' => ['required', 'integer', 'min:0', 'max:1000'],
             'form.weight' => ['required', 'integer', 'min:0', 'max:1000'],
             'form.limit_per_minute' => ['nullable', 'integer', 'min:1'],
@@ -114,6 +124,7 @@ class Providers extends Component
 
         $data = array_merge($this->form, [
             'config' => $config,
+            'from_address' => trim((string) ($this->form['from_address'] ?? '')) ?: null,
             'limit_per_minute' => $this->form['limit_per_minute'] ?: null,
             'limit_per_hour' => $this->form['limit_per_hour'] ?: null,
             'limit_per_day' => $this->form['limit_per_day'] ?: null,
@@ -180,7 +191,7 @@ class Providers extends Component
     public function openTest(int $id): void
     {
         $this->testingId = $id;
-        $this->testFrom = $this->testFrom ?: (string) Setting::get('default_from');
+        $this->testFrom = (string) (Provider::find($id)?->from_address ?: Setting::get('default_from'));
         $this->testTo = $this->testTo ?: (string) auth()->user()?->email;
     }
 
@@ -211,7 +222,7 @@ class Providers extends Component
     {
         $this->editingId = null;
         $this->form = [
-            'name' => '', 'type' => 'smtp', 'is_active' => true, 'priority' => 10, 'weight' => 100,
+            'name' => '', 'type' => 'smtp', 'from_address' => '', 'is_active' => true, 'priority' => 10, 'weight' => 100,
             'limit_per_minute' => null, 'limit_per_hour' => null, 'limit_per_day' => null,
         ];
         $this->config = $this->defaultConfig('smtp');

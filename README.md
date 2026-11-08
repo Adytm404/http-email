@@ -174,6 +174,7 @@ Errors use Resend's shape (`{"statusCode":422,"name":"validation_error","message
 3. Paused providers and providers cooling down after repeated failures are dropped. Failover orders the rest by priority; weighted draws the first by weight and keeps the others as fallbacks.
 4. Each candidate must reserve a slot in its minute, hour and day limits (one atomic Postgres upsert), otherwise it is skipped.
 5. A provider fault moves the email to the next candidate in the same run; a rejected recipient fails the email; if all candidates fail, the job retries with backoff.
+6. **Default sender per provider.** A provider can have its own *Default sender (From)*, e.g. an address on the domain verified with that provider. Mail sent through it uses that From, and the original sender becomes the Reply-To (unless the email set one). Providers without one send with the From of each email. A "domain is not verified" answer from Resend, SendGrid or Mailgun moves the email to the next provider without counting a failure against the first.
 
 ## Deploy
 

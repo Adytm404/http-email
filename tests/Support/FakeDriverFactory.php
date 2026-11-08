@@ -20,6 +20,9 @@ class FakeDriverFactory extends DriverFactory
 
     public array $sent = [];
 
+    /** @var list<OutgoingMessage> the messages exactly as each driver received them */
+    public array $messages = [];
+
     public function behave(string $provider, string $how): static
     {
         $this->behaviour[$provider] = $how;
@@ -39,6 +42,7 @@ class FakeDriverFactory extends DriverFactory
             {
                 $how = $this->factory->behaviour[$this->provider->name] ?? 'ok';
                 $this->factory->sent[] = [$this->provider->name, $message->id, $how];
+                $this->factory->messages[] = $message;
 
                 return match ($how) {
                     'down' => throw DriverException::providerDown('connection refused', 'connection'),

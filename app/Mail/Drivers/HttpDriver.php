@@ -39,6 +39,13 @@ abstract class HttpDriver implements EmailDriver
         $message = $this->errorMessage($body) ?? "HTTP {$status}";
         $code = (string) $status;
 
+        // "Domain not verified" / unverified sender identity: this provider cannot send from this address,
+        // but it is not broken. Try the next provider without counting a failure against this one.
+        if (in_array($status, [400, 403, 422], true)
+            && preg_match('/not verified|unverified|verify your domain|verified sender|sender identity|from address does not match/i', $message)) {
+            return DriverException::transient($message, $code, $body);
+        }
+
         return match (true) {
             // Bad or revoked credentials, wrong domain/region: the provider is unusable.
             in_array($status, [401, 403, 404], true) => DriverException::providerDown($message, $code, $body),

@@ -21,6 +21,7 @@
                             @if ($p->type === 'smtp') · {{ $p->config['host'] ?? '' }}:{{ $p->config['port'] ?? '' }} @endif
                             @if ($p->type === 'mailgun') · {{ $p->config['domain'] ?? '' }} @endif
                             · priority {{ $p->priority }} · weight {{ $p->weight }}
+                            @if ($p->from_address) · from {{ $p->from_address }} @endif
                         </p>
                         @if ($p->health !== 'healthy' && $p->last_error)
                             <p class="mt-1 line-clamp-1 text-[12.5px] text-bad" title="{{ $p->last_error }}">{{ $p->last_error }}</p>
@@ -99,6 +100,13 @@
                     <label for="p-name" class="label">Name</label>
                     <input id="p-name" wire:model="form.name" class="field" placeholder="e.g. Office SMTP, Resend main" required>
                     @error('form.name') <p class="mt-1.5 text-[13px] text-bad">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label for="p-from" class="label">Default sender (From)</label>
+                    <input id="p-from" wire:model="form.from_address" class="field" placeholder="Acme <noreply@your-verified-domain.com>" autocomplete="off">
+                    <p class="mt-1.5 text-[12.5px] text-muted">Mail sent through this provider uses this From, and the original sender becomes the Reply-To. Use an address on a domain verified with this provider. Leave blank to send with each email's own From.</p>
+                    @error('form.from_address') <p class="mt-1.5 text-[13px] text-bad">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
