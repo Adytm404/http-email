@@ -33,7 +33,7 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 lg:w-72">
-                    <div class="text-[12.5px]">
+                    <div class="text-[12.5px]" title="Emails sent in the last 24 hours (rolling). Not the same as the per-day limit, which counts the current UTC day.">
                         <p class="text-muted">Sent 24h</p>
                         <p class="font-medium tabular-nums">{{ number_format($p->sent_24h) }}</p>
                     </div>
@@ -44,6 +44,9 @@
                             <div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
                                 <div @class(['h-full rounded-full', 'bg-bad' => $u['used'] >= $u['limit'], 'bg-accent' => $u['used'] < $u['limit']]) style="width: {{ min(100, $u['used'] / $u['limit'] * 100) }}%"></div>
                             </div>
+                            @if ($window !== 'minute')
+                                <p class="mt-1 text-[11px] text-subtle">resets {{ $window === 'day' ? '00:00' : 'on the hour' }} UTC</p>
+                            @endif
                         </div>
                     @empty
                         <p class="text-[12.5px] text-muted">No rate limit</p>

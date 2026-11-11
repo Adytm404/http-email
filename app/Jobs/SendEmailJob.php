@@ -11,6 +11,7 @@ use App\Models\Provider;
 use App\Routing\CircuitBreaker;
 use App\Routing\EmailRouter;
 use App\Routing\QuotaManager;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Symfony\Component\Mime\Exception\RfcComplianceException;
@@ -27,6 +28,9 @@ class SendEmailJob implements ShouldQueue
 
     /** Delay (seconds) before round 2, 3 and 4. */
     public const BACKOFF = [60, 300, 1800];
+
+    /** An email waits at most this long for sending capacity (provider limits or rest periods) before it fails. */
+    public const MAX_CAPACITY_WAIT_HOURS = 24;
 
     public function __construct(public string $emailId)
     {
@@ -46,7 +50,11 @@ class SendEmailJob implements ShouldQueue
         }
 
         $rule = $router->ruleFor($email);
-        $candidates = $router->candidates($email, $rule);
+        // The providers of the route come first. Every other usable provider follows as a last resort, so a
+        // route that is too narrow (or whose providers are all out of quota) never fails an email while
+        // another provider could still send it.
+        $routed = $router->candidates($email, $rule);
+        $candidates = $routed->concat($router->fallbackCandidates($routed))->values();
 
         $email->forceFill([
             'status' => 'sending',
@@ -55,6 +63,11 @@ class SendEmailJob implements ShouldQueue
         ])->save();
 
         if ($candidates->isEmpty()) {
+            // Everything is resting (cooldown): wait for the first provider instead of burning retry rounds.
+            if ($this->waitForCapacity($email, $router->nextAvailability(), 'All providers are resting')) {
+                return;
+            }
+
             $this->retryOrFail($email, 'No provider available'.($rule ? " for route \"{$rule->name}\"" : ''));
 
             return;
@@ -62,11 +75,16 @@ class SendEmailJob implements ShouldQueue
 
         $message = OutgoingMessage::fromEmail($email);
         $lastError = 'All providers failed';
+        $resetsAt = [];
+        $rejections = 0;
 
         foreach ($candidates as $provider) {
             if (! $quota->reserve($provider)) {
                 $this->log($email, $provider, 'skipped', 'quota', 'Rate limit reached');
                 $lastError = "{$provider->name}: rate limit reached";
+                if ($at = $quota->nextAvailableAt($provider)) {
+                    $resetsAt[] = $at;
+                }
 
                 continue;
             }
@@ -78,6 +96,7 @@ class SendEmailJob implements ShouldQueue
             } catch (DriverException $e) {
                 $quota->release($provider);
                 $this->log($email, $provider, 'failed', $e->errorCode, $e->getMessage(), $e->response, $started);
+                $lastError = "{$provider->name}: {$e->getMessage()}";
 
                 if ($e->pauseSeconds) {
                     // Out of sending quota: rest this provider so the next emails go straight elsewhere.
@@ -87,12 +106,14 @@ class SendEmailJob implements ShouldQueue
                 }
 
                 if (! $e->retryable) {
-                    $this->markFailed($email, "{$provider->name}: {$e->getMessage()}");
+                    // The message was rejected. Another provider may still accept it (a sender or domain this
+                    // one does not know), so the email only fails once a second provider rejects it too.
+                    if (++$rejections >= 2 || $candidates->count() === 1) {
+                        $this->markFailed($email, $lastError);
 
-                    return;
+                        return;
+                    }
                 }
-
-                $lastError = "{$provider->name}: {$e->getMessage()}";
 
                 continue;
             } catch (RfcComplianceException $e) {
@@ -124,6 +145,11 @@ class SendEmailJob implements ShouldQueue
             return;
         }
 
+        // Some providers are only out of quota: that is not an error. Wait for the first one to reset.
+        if ($resetsAt !== [] && $this->waitForCapacity($email, collect($resetsAt)->sortBy(fn ($t) => $t->getTimestamp())->first(), $lastError)) {
+            return;
+        }
+
         $this->retryOrFail($email, $lastError);
     }
 
@@ -133,6 +159,36 @@ class SendEmailJob implements ShouldQueue
         if ($email && ! in_array($email->status, ['sent', 'canceled'], true)) {
             $email->forceFill(['status' => 'failed', 'failed_reason' => $e?->getMessage() ?? 'Job failed'])->save();
         }
+    }
+
+    /**
+     * Put the email back in the queue until a provider can send again, without using up a retry round.
+     * Returns true when the email was handled (queued again, or failed because it waited too long) and
+     * false when there is nothing to wait for or the job cannot be delayed (sync queue).
+     */
+    private function waitForCapacity(Email $email, ?CarbonInterface $at, string $reason): bool
+    {
+        if ($at === null || ! $this->job || $this->job->getConnectionName() === 'sync') {
+            return false;
+        }
+
+        if ($email->created_at->diffInHours(now()) >= self::MAX_CAPACITY_WAIT_HOURS) {
+            $this->markFailed($email, 'No sending capacity within '.self::MAX_CAPACITY_WAIT_HOURS.' hours. Last error: '.$reason);
+
+            return true;
+        }
+
+        // A little jitter so a whole backlog does not wake up in the same second.
+        $delay = max(30, (int) now()->diffInSeconds($at, false)) + random_int(0, 90);
+
+        $email->forceFill([
+            'status' => 'queued',
+            'failed_reason' => mb_substr('Waiting for sending capacity until '.$at->copy()->utc()->format('H:i').' UTC. '.$reason, 0, 2000),
+        ])->save();
+
+        self::dispatch($email->id)->delay(now()->addSeconds($delay));
+
+        return true;
     }
 
     private function retryOrFail(Email $email, string $reason): void

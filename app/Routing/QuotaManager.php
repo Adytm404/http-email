@@ -79,6 +79,34 @@ class QuotaManager
         return $out;
     }
 
+    /**
+     * When this provider can send again: the end of the longest window that is used up right now,
+     * or null when every limit still has room.
+     */
+    public function nextAvailableAt(Provider $provider): ?CarbonImmutable
+    {
+        $now = CarbonImmutable::now('UTC');
+        $latest = null;
+
+        foreach ($this->usage($provider) as $window => $u) {
+            if ($u['used'] < $u['limit']) {
+                continue;
+            }
+
+            $reset = match ($window) {
+                'minute' => $now->startOfMinute()->addMinute(),
+                'hour' => $now->startOfHour()->addHour(),
+                'day' => $now->startOfDay()->addDay(),
+            };
+
+            if ($latest === null || $reset->greaterThan($latest)) {
+                $latest = $reset;
+            }
+        }
+
+        return $latest;
+    }
+
     public function bucket(string $window): string
     {
         $now = CarbonImmutable::now('UTC');

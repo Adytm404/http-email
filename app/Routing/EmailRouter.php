@@ -5,6 +5,7 @@ namespace App\Routing;
 use App\Models\Email;
 use App\Models\Provider;
 use App\Models\RoutingRule;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 class EmailRouter
@@ -94,6 +95,30 @@ class EmailRouter
         }
 
         return $ordered->reject(fn (Provider $p) => $p->is($first))->prepend($first)->values();
+    }
+
+    /**
+     * Every other usable provider, tried only after the providers of the route all failed or are out of quota.
+     *
+     * @param  Collection<int, Provider>  $already  the route's own candidates
+     * @return Collection<int, Provider>
+     */
+    public function fallbackCandidates(Collection $already): Collection
+    {
+        $taken = $already->pluck('id');
+
+        return Provider::where('is_active', true)->get()
+            ->filter(fn (Provider $p) => ! $taken->contains($p->id) && $p->isAvailable())
+            ->sortBy(fn (Provider $p) => [$p->priority, $p->id])
+            ->values();
+    }
+
+    /** When the first resting (cooling down) active provider can be used again, or null when none is resting. */
+    public function nextAvailability(): ?CarbonImmutable
+    {
+        $at = Provider::where('is_active', true)->where('cooldown_until', '>', now())->min('cooldown_until');
+
+        return $at ? CarbonImmutable::parse($at) : null;
     }
 
     /**

@@ -66,9 +66,31 @@ class RoutingTest extends TestCase
         $this->assertSame(['Gmail B'], array_column($this->drivers->sent, 0));
     }
 
-    public function test_permanent_rejection_stops_without_trying_others(): void
+    public function test_a_rejection_is_confirmed_by_a_second_provider_before_the_email_fails(): void
+    {
+        $this->rule('default', ['A' => [1, 100], 'B' => [2, 100], 'C' => [3, 100]], ['is_default' => true]);
+        $this->drivers->behave('A', 'reject')->behave('B', 'reject');
+
+        $email = $this->send($this->email());
+
+        $this->assertSame('failed', $email->status);
+        $this->assertSame(['A', 'B'], array_column($this->drivers->sent, 0), 'C is not tried once two providers agreed');
+    }
+
+    public function test_a_provider_specific_rejection_falls_over_to_the_next_provider(): void
     {
         $this->rule('default', ['A' => [1, 100], 'B' => [2, 100]], ['is_default' => true]);
+        $this->drivers->behave('A', 'reject');
+
+        $email = $this->send($this->email());
+
+        $this->assertSame('sent', $email->status);
+        $this->assertSame('B', $email->provider->name);
+    }
+
+    public function test_a_single_provider_rejection_fails_immediately(): void
+    {
+        $this->rule('default', ['A' => [1, 100]], ['is_default' => true]);
         $this->drivers->behave('A', 'reject');
 
         $email = $this->send($this->email());
