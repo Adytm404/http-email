@@ -6,9 +6,11 @@
         </x-slot:actions>
     </x-ui.page-header>
 
+    <p class="mb-3 text-[12.5px] text-muted">Hourly limits reset on the hour and daily limits at 00:00 UTC (07:00 WIB). "Sent 24h" is a rolling 24 hours, so it can be higher than the daily count.</p>
+
     <x-ui.card :padding="false">
         @forelse ($providers as $p)
-            <div wire:key="provider-{{ $p->id }}" class="flex flex-col gap-4 border-t border-line px-5 py-4 first:border-t-0 sm:px-6 lg:flex-row lg:items-center">
+            <div wire:key="provider-{{ $p->id }}" class="flex flex-col gap-4 border-t border-line px-5 py-4 first:border-t-0 sm:px-6 xl:flex-row xl:items-center">
                 <div class="flex min-w-0 flex-1 items-center gap-3">
                     <x-ui.provider-icon :type="$p->type" class="size-9 text-[14px]" />
                     <div class="min-w-0">
@@ -32,24 +34,25 @@
                     </div>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 lg:w-72">
-                    <div class="text-[12.5px]" title="Emails sent in the last 24 hours (rolling). Not the same as the per-day limit, which counts the current UTC day.">
-                        <p class="text-muted">Sent 24h</p>
+                @php $cells = count($usage[$p->id]) + 1; @endphp
+                <div class="grid w-full max-w-md grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-[repeat(var(--cols),minmax(0,1fr))] xl:w-[22rem] xl:shrink-0 xl:grid-cols-4" style="--cols: {{ max(2, $cells) }}">
+                    <div class="min-w-0 text-[12.5px]" title="Emails sent in the last 24 hours (rolling). Not the same as the per-day limit, which counts the current UTC day.">
+                        <p class="truncate text-muted">Sent 24h</p>
                         <p class="font-medium tabular-nums">{{ number_format($p->sent_24h) }}</p>
                     </div>
                     @forelse ($usage[$p->id] as $window => $u)
-                        <div class="min-w-16 text-[12.5px]">
-                            <p class="text-muted">Per {{ $window }}</p>
+                        <div @class(['min-w-0 text-[12.5px]', 'xl:col-start-2' => $window === 'minute', 'xl:col-start-3' => $window === 'hour', 'xl:col-start-4' => $window === 'day']) title="{{ $window === 'minute' ? 'Resets every minute' : ($window === 'hour' ? 'Resets on the hour (UTC)' : 'Resets at 00:00 UTC') }}">
+                            <p class="truncate text-muted">Per {{ $window }}</p>
                             <p class="font-medium tabular-nums">{{ $u['used'] }}<span class="text-subtle">/{{ $u['limit'] }}</span></p>
-                            <div class="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+                            <div class="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-2">
                                 <div @class(['h-full rounded-full', 'bg-bad' => $u['used'] >= $u['limit'], 'bg-accent' => $u['used'] < $u['limit']]) style="width: {{ min(100, $u['used'] / $u['limit'] * 100) }}%"></div>
                             </div>
-                            @if ($window !== 'minute')
-                                <p class="mt-1 text-[11px] text-subtle">resets {{ $window === 'day' ? '00:00' : 'on the hour' }} UTC</p>
-                            @endif
                         </div>
                     @empty
-                        <p class="text-[12.5px] text-muted">No rate limit</p>
+                        <div class="min-w-0 text-[12.5px] xl:col-start-2">
+                            <p class="truncate text-muted">Limits</p>
+                            <p class="font-medium text-subtle">None</p>
+                        </div>
                     @endforelse
                 </div>
 
