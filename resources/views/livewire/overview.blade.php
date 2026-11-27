@@ -120,10 +120,6 @@
                 </div>
             @endif
 
-            @if ($capacity > 0 && ! $capacityOnScale)
-                <p class="mt-3 text-[12.5px] text-muted">Quota is about {{ number_format($capacity) }} per {{ $unit }}, far above the current volume, so it is not drawn.</p>
-            @endif
-
             <div class="mt-6 flex gap-3">
                 {{-- Y axis --}}
                 <div class="relative h-[232px] w-9 shrink-0 text-right text-[11px] tabular-nums text-subtle" aria-hidden="true">
@@ -137,7 +133,7 @@
                         @for ($v = 0; $v < 5; $v++)<div class="border-t border-dashed border-line"></div>@endfor
                     </div>
                     {{-- Quota line --}}
-                    @if ($capacity > 0 && $capacityOnScale)
+                    @if ($capacity > 0)
                         <div class="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[232px]" aria-hidden="true">
                             <div class="absolute inset-x-0 border-t-2 border-dashed border-warn" style="top: {{ 100 - $capacity / $axis['top'] * 100 }}%">
                                 <span class="absolute right-0 -translate-y-full rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-medium text-warn">
@@ -155,7 +151,7 @@
                             @endphp
                             <div class="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">
                                 <div class="relative flex h-[232px] w-full max-w-12 flex-col justify-end">
-                                    <div class="anim-grow-y flex flex-col justify-end overflow-hidden rounded-t-md transition-opacity group-hover:opacity-80" style="height: {{ $barTotal / $axis['top'] * 100 }}%; animation-delay: {{ $i * 35 }}ms">
+                                    <div class="anim-grow-y flex flex-col justify-end overflow-hidden rounded-t-md transition-opacity group-hover:opacity-80" style="height: {{ $barTotal > 0 ? 'max(3px, '.($barTotal / $axis['top'] * 100).'%)' : '0' }}; animation-delay: {{ $i * 35 }}ms">
                                         @if ($d['failed'])<div class="shrink-0 bg-bad" style="height: {{ $d['failed'] / max(1, $barTotal) * 100 }}%"></div>@endif
                                         <div class="flex min-h-0 flex-1 flex-col-reverse">
                                             @forelse ($d['by'] as $pid => $n)

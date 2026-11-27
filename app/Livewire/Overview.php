@@ -109,9 +109,8 @@ class Overview extends Component
 
         $maxDay = max(1, $days->max(fn ($d) => $d['sent'] + $d['failed']));
 
-        // Draw the quota line only when it is within reach of the bars; far above them it would flatten the chart.
-        $capacityOnScale = $capacity > 0 && $capacity <= $maxDay * 8;
-        $scaleMax = $capacityOnScale ? max($maxDay, $capacity) : $maxDay;
+        // The axis always reaches the quota, so the limit stays visible however small the volume is.
+        $scaleMax = max($maxDay, $capacity);
 
         // Live quota per active provider with a limit: used / limit for each window right now.
         $quota = app(QuotaManager::class);
@@ -139,7 +138,6 @@ class Overview extends Component
             'maxDay' => $maxDay,
             'axis' => $this->axis($scaleMax),
             'capacity' => $capacity,
-            'capacityOnScale' => $capacityOnScale,
             'unlimited' => $unlimited,
             'colors' => $colors,
             'names' => $providers->pluck('name', 'id')->all(),

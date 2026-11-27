@@ -70,23 +70,38 @@ class OverviewQuotaTest extends TestCase
             ->assertViewHas('days', fn ($days) => $days->last()['by'] === [$a->id => 4, $b->id => 2]);
     }
 
-    public function test_the_quota_line_is_only_drawn_when_it_is_within_reach_of_the_bars(): void
+    public function test_the_axis_always_reaches_the_quota_so_the_limit_stays_visible(): void
     {
         $this->actingAs($this->owner());
-        $a = $this->provider('A', ['limit_per_hour' => 100]);
-        $this->sentVia($a, CarbonImmutable::today()->addHour(), 40);
+        $a = $this->provider('A', ['limit_per_hour' => 1000]);
 
-        // 40 emails against 100 an hour: on the chart
+        // volume far below the quota: the axis still reaches it
+        $this->sentVia($a, CarbonImmutable::today()->addHour(), 2);
         Livewire::test(Overview::class)->set('range', 1)
-            ->assertViewHas('capacityOnScale', true)
-            ->assertViewHas('axis', fn ($axis) => $axis['top'] >= 100);
+            ->assertViewHas('capacity', 1000)
+            ->assertViewHas('axis', fn ($axis) => $axis['top'] >= 1000)
+            ->assertSee('Quota 1,000/h');
 
-        // 1 email against 100 an hour: far off, the axis stays with the bars
+        // no volume at all: same
         Email::query()->delete();
-        $this->sentVia($a, CarbonImmutable::today()->addHour(), 1);
         Livewire::test(Overview::class)->set('range', 1)
-            ->assertViewHas('capacityOnScale', false)
-            ->assertViewHas('axis', fn ($axis) => $axis['top'] < 100);
+            ->assertViewHas('axis', fn ($axis) => $axis['top'] >= 1000)
+            ->assertSee('Quota 1,000/h');
+
+        // volume above the quota: the axis grows with the bars
+        $this->sentVia($a, CarbonImmutable::today()->addHour(), 1200);
+        Livewire::test(Overview::class)->set('range', 1)
+            ->assertViewHas('axis', fn ($axis) => $axis['top'] >= 1200);
+    }
+
+    public function test_the_quota_line_follows_the_selected_range(): void
+    {
+        $this->actingAs($this->owner());
+        $this->provider('A', ['limit_per_hour' => 100, 'limit_per_day' => 450]);
+
+        Livewire::test(Overview::class)->set('range', 1)->assertSee('Quota 100/h')->assertSee('Quota per hour');
+        Livewire::test(Overview::class)->set('range', 7)->assertSee('Quota 450/day')->assertSee('Quota per day');
+        Livewire::test(Overview::class)->set('range', 30)->assertSee('Quota 450/day');
     }
 
     public function test_providers_near_their_quota_raise_a_warning(): void
