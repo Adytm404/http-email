@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Email;
 use App\Models\Provider;
+use App\Routing\QuotaManager;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
@@ -14,6 +15,9 @@ use Livewire\Component;
 class Overview extends Component
 {
     public const RANGES = [1 => 'Today', 7 => '7 days', 14 => '14 days', 30 => '30 days'];
+
+    /** One colour per provider in the volume chart (by provider id, so colours stay put). */
+    public const PALETTE = ['#3b82f6', '#8b5cf6', '#14b8a6', '#ec4899', '#84cc16', '#06b6d4', '#6366f1', '#94a3b8'];
 
     #[Url(except: 7)]
     public int $range = 7;
@@ -44,14 +48,33 @@ class Overview extends Component
             ->get()
             ->groupBy(fn ($r) => (string) $r->day);
 
-        $days = collect(range(0, ($hourly ? 24 : $range) - 1))->map(function ($i) use ($since, $daily, $hourly) {
+        $providers = Provider::orderBy('priority')->orderBy('id')->get();
+        $colors = $providers->sortBy('id')->values()->mapWithKeys(fn ($p, $i) => [$p->id => self::PALETTE[$i % count(self::PALETTE)]])->all();
+
+        // Delivered emails per bucket and provider, so each bar can show who sent what.
+        $byProviderPerBucket = $inRange()->where('status', 'sent')->whereNotNull('provider_id')
+            ->selectRaw("{$bucket} as day, provider_id, count(*) as n")
+            ->groupBy('day', 'provider_id')
+            ->get()
+            ->groupBy(fn ($r) => (string) $r->day);
+
+        // What the active providers can send per bucket under their limits (providers without a limit add nothing).
+        $unit = $hourly ? 'hour' : 'day';
+        $active = $providers->where('is_active', true);
+        $capacity = (int) $active->sum(fn ($p) => $p->capacity($unit) ?? 0);
+        $unlimited = $active->filter(fn ($p) => $p->capacity($unit) === null)->count();
+
+        $days = collect(range(0, ($hourly ? 24 : $range) - 1))->map(function ($i) use ($since, $daily, $hourly, $byProviderPerBucket) {
             $d = $hourly ? $since->addHours($i) : $since->addDays($i);
-            $rows = $daily->get($hourly ? $d->format('Y-m-d H') : $d->toDateString(), collect());
+            $key = $hourly ? $d->format('Y-m-d H') : $d->toDateString();
+            $rows = $daily->get($key, collect());
 
             return [
-                'label' => $hourly ? $d->format('H') : $d->format($i === 0 || $d->day === 1 ? 'j M' : 'j'),
+                'label' => $hourly ? $d->format('H') : $d->format('j'),
+                'month' => ! $hourly && ($i === 0 || $d->day === 1) ? $d->format('M') : '',
                 'weekday' => $hourly ? $d->format('H') : $d->format('D'),
                 'date' => $hourly ? $d->format('D, j M · H:00') : $d->format('D, j M'),
+                'by' => $byProviderPerBucket->get($key, collect())->mapWithKeys(fn ($r) => [(int) $r->provider_id => (int) $r->n])->sortKeys()->all(),
                 'sent' => (int) $rows->firstWhere('status', 'sent')?->n,
                 'failed' => (int) $rows->firstWhere('status', 'failed')?->n,
             ];
@@ -86,10 +109,42 @@ class Overview extends Component
 
         $maxDay = max(1, $days->max(fn ($d) => $d['sent'] + $d['failed']));
 
+        // Draw the quota line only when it is within reach of the bars; far above them it would flatten the chart.
+        $capacityOnScale = $capacity > 0 && $capacity <= $maxDay * 8;
+        $scaleMax = $capacityOnScale ? max($maxDay, $capacity) : $maxDay;
+
+        // Live quota per active provider with a limit: used / limit for each window right now.
+        $quota = app(QuotaManager::class);
+        $quotaRows = $active->map(function ($p) use ($quota, $colors) {
+            $usage = $quota->usage($p);
+            if ($usage === []) {
+                return null;
+            }
+            $ratio = collect($usage)->map(fn ($u) => $u['used'] / $u['limit'])->max();
+
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'color' => $colors[$p->id],
+                'usage' => $usage,
+                'pct' => (int) round($ratio * 100),
+                'full' => $ratio >= 1,
+                'left' => (int) collect($usage)->map(fn ($u) => max(0, $u['limit'] - $u['used']))->min(),
+            ];
+        })->filter()->sortByDesc('pct')->values();
+        $nearLimit = $quotaRows->filter(fn ($q) => $q['pct'] >= 80)->values();
+
         return view('livewire.overview', [
             'days' => $days,
             'maxDay' => $maxDay,
-            'axis' => $this->axis($maxDay),
+            'axis' => $this->axis($scaleMax),
+            'capacity' => $capacity,
+            'capacityOnScale' => $capacityOnScale,
+            'unlimited' => $unlimited,
+            'colors' => $colors,
+            'names' => $providers->pluck('name', 'id')->all(),
+            'quotaRows' => $quotaRows,
+            'nearLimit' => $nearLimit,
             'sent' => $sent,
             'failed' => $failed,
             'total' => $total,
@@ -98,7 +153,7 @@ class Overview extends Component
             'trend' => $prevSent > 0 ? round(($sent - $prevSent) / $prevSent * 100) : null,
             'avgSeconds' => $avgSeconds !== null ? (float) $avgSeconds : null,
             'statusCounts' => $statusCounts,
-            'providers' => Provider::orderBy('priority')->get(),
+            'providers' => $providers,
             'byProvider' => $byProvider,
             'providerTotal' => max(1, $byProvider->sum()),
             'topDomains' => $topDomains,

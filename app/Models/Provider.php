@@ -59,6 +59,20 @@ class Provider extends Model
     }
 
     /** Limits keyed by window name, only those that are set. */
+    /**
+     * The most this provider can send in an hour or a day under its limits, or null when it has none.
+     * A per-minute limit counts for every minute of the window, and a daily limit also caps an hour.
+     */
+    public function capacity(string $per): ?int
+    {
+        $l = $this->limits();
+        $caps = $per === 'hour'
+            ? array_filter([$l['hour'] ?? null, isset($l['minute']) ? $l['minute'] * 60 : null, $l['day'] ?? null])
+            : array_filter([$l['day'] ?? null, isset($l['hour']) ? $l['hour'] * 24 : null, isset($l['minute']) ? $l['minute'] * 1440 : null]);
+
+        return $caps === [] ? null : (int) min($caps);
+    }
+
     public function limits(): array
     {
         return array_filter([

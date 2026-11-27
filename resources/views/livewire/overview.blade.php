@@ -87,20 +87,46 @@
     {{-- Volume chart + status donut --}}
     <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
         <x-ui.card wire:key="chart-{{ $range }}">
+            @php
+                $legend = collect($colors)->map(fn ($c, $id) => ['id' => $id, 'name' => $names[$id] ?? 'Provider', 'color' => $c])
+                    ->filter(fn ($l) => $days->contains(fn ($d) => isset($d['by'][$l['id']])))
+                    ->values();
+                $unit = $hourly ? 'hour' : 'day';
+            @endphp
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                     <h2 class="text-[15px] font-semibold">Volume per {{ $hourly ? 'hour' : 'day' }}</h2>
                     <p class="text-[13px] text-muted">{{ number_format($total) }} emails accepted {{ $range === 1 ? 'today' : 'in this period' }}</p>
                 </div>
-                <div class="flex items-center gap-4 text-[12px] text-muted">
-                    <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-accent"></span>Delivered</span>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted">
+                    @foreach ($legend as $l)
+                        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm" style="background: {{ $l['color'] }}"></span>{{ $l['name'] }}</span>
+                    @endforeach
                     <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-bad"></span>Failed</span>
+                    @if ($capacity > 0)
+                        <span class="flex items-center gap-1.5"><span class="w-4 border-t-2 border-dashed border-warn"></span>Quota per {{ $unit }}</span>
+                    @endif
                 </div>
             </div>
 
+            @if ($nearLimit->isNotEmpty())
+                <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-warn/40 bg-warn-soft px-3.5 py-2.5 text-[13px]" role="status">
+                    <x-ui.icon name="alert" class="size-4 shrink-0 text-warn" />
+                    <p class="min-w-0 flex-1">
+                        <span class="font-medium">{{ $nearLimit->count() }} {{ str('provider')->plural($nearLimit->count()) }} {{ $nearLimit->contains(fn ($q) => $q['full']) ? 'at or near' : 'near' }} the sending quota.</span>
+                        Add another provider before mail starts waiting for capacity.
+                    </p>
+                    @can('manage_providers')<a href="{{ route('providers') }}" wire:navigate class="shrink-0 font-medium text-accent hover:underline">Add provider</a>@endcan
+                </div>
+            @endif
+
+            @if ($capacity > 0 && ! $capacityOnScale)
+                <p class="mt-3 text-[12.5px] text-muted">Quota is about {{ number_format($capacity) }} per {{ $unit }}, far above the current volume, so it is not drawn.</p>
+            @endif
+
             <div class="mt-6 flex gap-3">
                 {{-- Y axis --}}
-                <div class="relative h-[232px] w-8 shrink-0 text-right text-[11px] tabular-nums text-subtle" aria-hidden="true">
+                <div class="relative h-[232px] w-9 shrink-0 text-right text-[11px] tabular-nums text-subtle" aria-hidden="true">
                     @for ($v = 4; $v >= 0; $v--)
                         <span class="absolute right-0 -translate-y-1/2 leading-none" style="top: {{ (4 - $v) * 25 }}%">{{ number_format($axis['step'] * $v) }}</span>
                     @endfor
@@ -110,27 +136,84 @@
                     <div class="pointer-events-none absolute inset-x-0 top-0 flex h-[232px] flex-col justify-between">
                         @for ($v = 0; $v < 5; $v++)<div class="border-t border-dashed border-line"></div>@endfor
                     </div>
-                    <div class="relative flex h-64 items-end gap-[3px] sm:gap-1.5" role="img" aria-label="Emails per {{ $hourly ? 'hour' : 'day' }}">
+                    {{-- Quota line --}}
+                    @if ($capacity > 0 && $capacityOnScale)
+                        <div class="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[232px]" aria-hidden="true">
+                            <div class="absolute inset-x-0 border-t-2 border-dashed border-warn" style="top: {{ 100 - $capacity / $axis['top'] * 100 }}%">
+                                <span class="absolute right-0 -translate-y-full rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-medium text-warn">
+                                    Quota {{ number_format($capacity) }}/{{ $hourly ? 'h' : 'day' }}@if ($unlimited) + {{ $unlimited }} unlimited @endif
+                                </span>
+                            </div>
+                        </div>
+                    @endif
+                    <div class="relative flex h-64 items-end gap-[3px] sm:gap-1.5" role="img" aria-label="Emails per {{ $hourly ? 'hour' : 'day' }} by provider, with the sending quota">
                         @foreach ($days as $i => $d)
-                            @php $edge = $i < 2 ? 'left-0' : ($i > $days->count() - 3 ? 'right-0' : 'left-1/2 -translate-x-1/2'); @endphp
+                            @php
+                                $edge = $i < 2 ? 'left-0' : ($i > $days->count() - 3 ? 'right-0' : 'left-1/2 -translate-x-1/2');
+                                $barTotal = $d['sent'] + $d['failed'];
+                                $use = $capacity > 0 ? round($barTotal / $capacity * 100) : null;
+                            @endphp
                             <div class="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">
                                 <div class="relative flex h-[232px] w-full max-w-12 flex-col justify-end">
-                                    <div class="anim-grow-y flex flex-col justify-end overflow-hidden rounded-t-md transition-opacity group-hover:opacity-80" style="height: {{ ($d['sent'] + $d['failed']) / $axis['top'] * 100 }}%; animation-delay: {{ $i * 35 }}ms">
-                                        @if ($d['failed'])<div class="bg-bad" style="height: {{ $d['failed'] / max(1, $d['sent'] + $d['failed']) * 100 }}%"></div>@endif
-                                        <div class="flex-1 bg-accent"></div>
+                                    <div class="anim-grow-y flex flex-col justify-end overflow-hidden rounded-t-md transition-opacity group-hover:opacity-80" style="height: {{ $barTotal / $axis['top'] * 100 }}%; animation-delay: {{ $i * 35 }}ms">
+                                        @if ($d['failed'])<div class="shrink-0 bg-bad" style="height: {{ $d['failed'] / max(1, $barTotal) * 100 }}%"></div>@endif
+                                        <div class="flex min-h-0 flex-1 flex-col-reverse">
+                                            @forelse ($d['by'] as $pid => $n)
+                                                <div style="flex: {{ $n }} 1 0%; background: {{ $colors[$pid] ?? 'var(--c-accent)' }}"></div>
+                                            @empty
+                                                <div class="flex-1 bg-accent"></div>
+                                            @endforelse
+                                        </div>
                                     </div>
-                                    @if ($d['sent'] + $d['failed'] === 0)<div class="h-1 rounded-sm bg-surface-2"></div>@endif
-                                    <div class="pointer-events-none absolute bottom-full z-10 mb-2 hidden whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-[12px] text-canvas shadow-lg group-hover:block {{ $edge }}">
+                                    @if ($barTotal === 0)<div class="h-1 rounded-sm bg-surface-2"></div>@endif
+                                    <div class="pointer-events-none absolute bottom-full z-10 mb-2 hidden min-w-40 whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-[12px] text-canvas shadow-lg group-hover:block {{ $edge }}">
                                         <p class="font-medium">{{ $d['date'] }}</p>
+                                        @foreach ($d['by'] as $pid => $n)
+                                            <p class="flex items-center gap-1.5"><span class="size-2 rounded-sm" style="background: {{ $colors[$pid] ?? 'var(--c-accent)' }}"></span>{{ $names[$pid] ?? 'Provider' }} · {{ number_format($n) }}</p>
+                                        @endforeach
                                         <p>{{ number_format($d['sent']) }} delivered · {{ number_format($d['failed']) }} failed</p>
+                                        @if ($use !== null)<p class="opacity-70">{{ $use }}% of the {{ number_format($capacity) }} quota</p>@endif
                                     </div>
                                 </div>
-                                <span @class(['mt-2 h-4 truncate text-[11px] text-muted', 'hidden sm:block' => $days->count() > 14 && $i % 3 !== 0])>{{ $days->count() > 7 ? $d['label'] : $d['weekday'] }}</span>
+                                <span @class(['mt-2 h-7 text-center text-[11px] leading-4 text-muted', 'hidden sm:block' => $days->count() > 14 && $i % 3 !== 0])>
+                                    {{ $days->count() > 7 ? $d['label'] : $d['weekday'] }}
+                                    @if ($days->count() > 7 && $d['month'])<span class="block text-[9px] uppercase leading-none text-subtle">{{ $d['month'] }}</span>@endif
+                                </span>
                             </div>
                         @endforeach
                     </div>
                 </div>
             </div>
+
+            {{-- Live quota per provider --}}
+            @if ($quotaRows->isNotEmpty())
+                <div class="mt-6 border-t border-line pt-4">
+                    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-[13px] font-semibold">Quota right now</h3>
+                        <p class="text-[12px] text-muted">Hourly limits reset on the hour, daily limits at 00:00 UTC.</p>
+                    </div>
+                    <ul class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+                        @foreach ($quotaRows as $q)
+                            <li wire:key="quota-{{ $q['id'] }}">
+                                <div class="flex items-center gap-2 text-[13px]">
+                                    <span class="size-2.5 shrink-0 rounded-sm" style="background: {{ $q['color'] }}"></span>
+                                    <span class="min-w-0 flex-1 truncate font-medium">{{ $q['name'] }}</span>
+                                    <span @class(['tabular-nums', 'font-medium text-bad' => $q['pct'] >= 90, 'font-medium text-warn' => $q['pct'] >= 70 && $q['pct'] < 90, 'text-muted' => $q['pct'] < 70])>{{ $q['pct'] }}%</span>
+                                </div>
+                                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                                    <div class="h-full rounded-full" style="width: {{ min(100, $q['pct']) }}%; background: {{ $q['pct'] >= 90 ? 'var(--c-bad)' : ($q['pct'] >= 70 ? 'var(--c-warn)' : $q['color']) }}"></div>
+                                </div>
+                                <p class="mt-1 flex flex-wrap gap-x-3 text-[12px] tabular-nums text-muted">
+                                    @foreach ($q['usage'] as $w => $u)
+                                        <span>{{ $w }} {{ number_format($u['used']) }}/{{ number_format($u['limit']) }}</span>
+                                    @endforeach
+                                    <span class="text-subtle">{{ $q['full'] ? 'full' : number_format($q['left']).' left' }}</span>
+                                </p>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </x-ui.card>
 
         <x-ui.card wire:key="donut-{{ $range }}">
